@@ -1,10 +1,12 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
+import { isSupabaseConfigured, profileFromSession, supabase, ensureProfileDisplayName } from '../lib/supabase'
 
 const emit = defineEmits(['login'])
 
+const useBackend = isSupabaseConfigured()
 const DEMO = { username: 'admin', password: '123456' }
 
 const form = reactive({ username: '', password: '' })
@@ -12,26 +14,52 @@ const remember = ref(false)
 const loading = ref(false)
 const error = ref('')
 
-function submit() {
+const accountLabel = computed(() => (useBackend ? '邮箱' : '用户名'))
+const accountPlaceholder = computed(() => (useBackend ? 'name@example.com' : '请输入用户名'))
+
+async function submit() {
   error.value = ''
   if (!form.username.trim() || !form.password) {
-    error.value = '请输入用户名和密码'
+    error.value = `请输入${accountLabel.value}和密码`
     return
   }
   loading.value = true
-  window.setTimeout(() => {
+  try {
+    if (useBackend && supabase) {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: form.username.trim(),
+        password: form.password,
+      })
+      if (authError) {
+        error.value = authError.message.includes('Invalid login')
+          ? '邮箱或密码错误，请重试'
+          : authError.message
+        return
+      }
+      const user = await ensureProfileDisplayName(data.session)
+      ElMessage({ message: `登录成功，欢迎回来，${user.name}！`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+      emit('login', user)
+      return
+    }
+
+    await new Promise(resolve => window.setTimeout(resolve, 480))
     if (form.username.trim() === DEMO.username && form.password === DEMO.password) {
       ElMessage({ message: '登录成功，欢迎回来，猴猴大王！', type: 'success', customClass: 'light-bites-message', duration: 2400 })
       emit('login', { name: '猴猴大王', role: '超级管理员', username: form.username.trim() })
     } else {
-      loading.value = false
       error.value = '用户名或密码错误，请重试'
     }
-  }, 480)
+  } finally {
+    loading.value = false
+  }
 }
 
 function forgot() {
-  ElMessage({ message: '请联系系统管理员重置密码', customClass: 'light-bites-message', duration: 2400 })
+  ElMessage({
+    message: useBackend ? '请在 Supabase 控制台重置密码，或联系管理员' : '请联系系统管理员重置密码',
+    customClass: 'light-bites-message',
+    duration: 2400,
+  })
 }
 </script>
 
@@ -56,12 +84,18 @@ function forgot() {
         </div>
 
         <h1 class="card-title">后台管理系统</h1>
-        <p class="card-subtitle">欢迎回来，请登录您的账户</p>
+        <p class="card-subtitle">{{ useBackend ? '使用 Supabase 账号登录' : '欢迎回来，请登录您的账户' }}</p>
 
         <form class="login-form" @submit.prevent="submit">
           <div class="field">
-            <label class="field-label">用户名</label>
-            <el-input v-model="form.username" size="large" placeholder="请输入用户名" autocomplete="username" @input="error = ''">
+            <label class="field-label">{{ accountLabel }}</label>
+            <el-input
+              v-model="form.username"
+              size="large"
+              :placeholder="accountPlaceholder"
+              :autocomplete="useBackend ? 'email' : 'username'"
+              @input="error = ''"
+            >
               <template #prefix><AppIcon name="user" /></template>
             </el-input>
           </div>

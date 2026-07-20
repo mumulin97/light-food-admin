@@ -186,6 +186,14 @@ svg { display: block; }
 .search-results span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .dashboard-content { padding: 30px 32px 38px; }
+.dashboard-error {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #b42318;
+  font-size: 14px;
+}
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .page-heading h1 { margin: 0; font-size: 31px; line-height: 1.2; letter-spacing: -.035em; }
 .page-heading p { margin: 8px 0 0; color: #647068; font-size: 14px; }

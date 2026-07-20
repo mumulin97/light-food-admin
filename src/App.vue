@@ -1,8 +1,10 @@
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { orderStore, createOrder as addOrder, formatMoney as formatOrderMoney, formatOrderItems, dashboardStatusClass } from './stores/orders'
 import { memberStore, findMember } from './stores/members'
+import { isSupabaseConfigured, profileFromSession, supabase, ensureProfileDisplayName } from './lib/supabase'
+import { useDashboard } from './composables/useDashboard'
 import AppIcon from './components/AppIcon.vue'
 import Login from './components/Login.vue'
 import RevenueChart from './components/RevenueChart.vue'
@@ -21,7 +23,7 @@ const navItems = [
   ['员工管理', 'badge'], ['系统日志', 'history'],
 ]
 
-const stores = ['中心旗舰店', '滨江轻食店', '云谷外卖店']
+const mockStores = ['中心旗舰店', '滨江轻食店', '云谷外卖店']
 const dateOptions = [
   { value: '2023年10月24日', label: '10月24日', meta: '今天' },
   { value: '2023年10月23日', label: '10月23日', meta: '昨天' },
@@ -63,30 +65,97 @@ const searchItems = [
 ]
 
 const AUTH_KEY = 'lightbites-auth'
+const useBackend = isSupabaseConfigured()
+const dashboard = useDashboard()
+const dashboardLoading = dashboard.loading
+const dashboardError = dashboard.error
+
 const currentUser = ref(null)
-try {
-  const stored = localStorage.getItem(AUTH_KEY)
-  if (stored) currentUser.value = JSON.parse(stored)
-} catch (e) { /* ignore malformed auth cache */ }
+
+async function bootstrapAuth() {
+  if (useBackend && supabase) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      currentUser.value = await ensureProfileDisplayName(session)
+      await dashboard.initStores()
+    }
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        currentUser.value = event === 'SIGNED_IN'
+          ? await ensureProfileDisplayName(session)
+          : profileFromSession(session)
+        if (event === 'SIGNED_IN') await dashboard.initStores()
+      } else if (event === 'SIGNED_OUT') {
+        currentUser.value = null
+      }
+    })
+    return
+  }
+  try {
+    const stored = localStorage.getItem(AUTH_KEY)
+    if (stored) currentUser.value = JSON.parse(stored)
+  } catch (e) { /* ignore malformed auth cache */ }
+}
+
+onMounted(() => bootstrapAuth())
 
 function handleLogin(user) {
   currentUser.value = user
-  localStorage.setItem(AUTH_KEY, JSON.stringify(user))
+  if (!useBackend) localStorage.setItem(AUTH_KEY, JSON.stringify(user))
+  else dashboard.initStores()
 }
 
-function logout() {
+async function logout() {
+  if (useBackend && supabase) await supabase.auth.signOut()
   currentUser.value = null
-  localStorage.removeItem(AUTH_KEY)
+  if (!useBackend) localStorage.removeItem(AUTH_KEY)
   ElMessage({ message: '已安全退出登录', customClass: 'light-bites-message', duration: 2400 })
 }
 
 const activeSection = ref('控制台')
 const sidebarOpen = ref(false)
 const sidebarCollapsed = ref(false)
-const selectedStore = ref('中心旗舰店')
-const selectedDate = ref('2023年10月24日')
-const currentRange = ref(7)
-const rankingMode = ref('volume')
+const selectedStoreLocal = ref('中心旗舰店')
+const selectedDateLocal = ref('2023年10月24日')
+const currentRangeLocal = ref(7)
+const rankingModeLocal = ref('volume')
+
+const storeList = computed(() => (useBackend ? dashboard.stores.value : mockStores))
+
+const selectedStore = computed({
+  get: () => (useBackend ? dashboard.selectedStore.value : selectedStoreLocal.value),
+  set: value => {
+    if (useBackend) dashboard.selectedStore.value = value
+    else selectedStoreLocal.value = value
+  },
+})
+
+const selectedDateLabel = computed(() =>
+  useBackend ? dashboard.selectedDateLabel.value : selectedDateLocal.value,
+)
+
+const selectedDateKey = computed(() =>
+  useBackend ? dashboard.selectedDateIso.value : selectedDateLocal.value,
+)
+
+const dateOptionsList = computed(() => (useBackend ? dashboard.dateOptions.value : dateOptions))
+
+const currentRange = computed({
+  get: () => (useBackend ? dashboard.currentRange.value : currentRangeLocal.value),
+  set: value => {
+    if (useBackend) dashboard.currentRange.value = value
+    else currentRangeLocal.value = value
+  },
+})
+
+const rankingMode = computed({
+  get: () => (useBackend ? dashboard.rankingMode.value : rankingModeLocal.value),
+  set: value => {
+    if (useBackend) dashboard.rankingMode.value = value
+    else rankingModeLocal.value = value
+  },
+})
+
 const searchQuery = ref('')
 const searchFocused = ref(false)
 const notificationVisible = ref(false)
@@ -108,16 +177,36 @@ function selectOrderMember(memberId) {
   if (member) orderForm.customer = member.name
 }
 const productPrices = { 抹茶能量碗: 45, 牛油果高纤卷: 36, 藜麦田园沙拉: 34, 冷萃燕麦杯: 28 }
+const productPriceMap = computed(() =>
+  useBackend && Object.keys(dashboard.productPrices.value).length
+    ? dashboard.productPrices.value
+    : productPrices,
+)
+const productCatalog = computed(() => Object.keys(productPriceMap.value))
 
-const currentMetrics = computed(() => dateData[selectedDate.value])
-const chartValues = computed(() => currentRange.value === 7 ? currentMetrics.value.chart : chartState[currentRange.value])
+const currentMetrics = computed(() =>
+  useBackend ? dashboard.metrics.value : dateData[selectedDateLocal.value],
+)
+const chartValues = computed(() => {
+  if (useBackend) return dashboard.chartValues.value
+  const metrics = dateData[selectedDateLocal.value]
+  return currentRangeLocal.value === 7 ? metrics.chart : chartState[currentRangeLocal.value]
+})
 const chartLabels = computed(() => {
-  if (currentRange.value === 7) return ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+  const range = useBackend ? dashboard.currentRange.value : currentRangeLocal.value
+  if (range === 7) return ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
   return chartValues.value.map((_, index) => `${index + 1}日`)
 })
-const currentRanking = computed(() => rankingSets[rankingMode.value])
-const latestOrders = computed(() => orderStore.orders.slice(0, 3))
-const filteredOrders = computed(() => orderFilter.value === '全部' ? orderStore.orders : orderStore.orders.filter(order => order.status === orderFilter.value))
+const currentRanking = computed(() =>
+  useBackend ? dashboard.ranking.value : rankingSets[rankingModeLocal.value],
+)
+const consoleOrders = computed(() => (useBackend ? dashboard.dayOrders.value : orderStore.orders))
+const latestOrders = computed(() => consoleOrders.value.slice(0, 3))
+const filteredOrders = computed(() =>
+  orderFilter.value === '全部'
+    ? consoleOrders.value
+    : consoleOrders.value.filter(order => order.status === orderFilter.value),
+)
 const searchResults = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   return query ? searchItems.filter(item => item.label.toLowerCase().includes(query)).slice(0, 5) : []
@@ -138,6 +227,10 @@ function success(message) {
   ElMessage({ message, type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
+function onStoresChanged() {
+  if (useBackend) dashboard.initStores()
+}
+
 function selectNav(section) {
   sidebarOpen.value = false
   if (['控制台', '门店管理', '产品目录', '原料管理', '供应商', '订单管理', '会员系统', '营销活动', '员工管理', '系统日志'].includes(section)) {
@@ -154,8 +247,9 @@ function selectStore(store) {
 }
 
 function selectDate(date) {
-  selectedDate.value = date
-  success(`已更新 ${date} 的营业数据`)
+  if (useBackend) dashboard.selectedDateIso.value = date
+  else selectedDateLocal.value = date
+  success(`已更新 ${useBackend ? dashboard.selectedDateLabel.value : date} 的营业数据`)
 }
 
 function selectSearch(item) {
@@ -185,12 +279,31 @@ function increaseQuantity() {
   orderForm.quantity = Math.min(20, orderForm.quantity + 1)
 }
 
-function createOrder() {
+async function createOrder() {
   if (!orderForm.customer.trim()) {
     ElMessage({ message: '请输入顾客姓名', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
     return
   }
-  const total = productPrices[orderForm.product] * orderForm.quantity
+  const prices = productPriceMap.value
+  const total = prices[orderForm.product] * orderForm.quantity
+  if (useBackend) {
+    try {
+      const id = await dashboard.createOrder({
+        customer: orderForm.customer.trim(),
+        items: [[orderForm.product, orderForm.quantity]],
+        amount: total,
+        method: orderForm.method,
+        note: orderForm.note,
+        memberId: orderForm.memberId,
+      })
+      Object.assign(orderForm, { customer: '', memberId: null, product: '抹茶能量碗', quantity: 1, method: '堂食', note: '' })
+      orderDialogVisible.value = false
+      success(`订单 ${id} 已创建，请在控制台「最新订单」查看（订单管理页尚未接库）`)
+    } catch (e) {
+      ElMessage({ message: e.message || '创建订单失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    }
+    return
+  }
   const order = addOrder({
     customer: orderForm.customer.trim(),
     items: [[orderForm.product, orderForm.quantity]],
@@ -199,7 +312,7 @@ function createOrder() {
     status: '待处理',
     memberId: orderForm.memberId,
   })
-  dateData[selectedDate.value].orders = String(Number(dateData[selectedDate.value].orders) + 1)
+  dateData[selectedDateLocal.value].orders = String(Number(dateData[selectedDateLocal.value].orders) + 1)
   Object.assign(orderForm, { customer: '', memberId: null, product: '抹茶能量碗', quantity: 1, method: '堂食', note: '' })
   orderDialogVisible.value = false
   success(`订单 ${order.id} 已创建并进入待处理队列`)
@@ -293,7 +406,7 @@ onBeforeUnmount(() => {
         <div class="topbar-actions">
           <el-dropdown v-if="activeSection === '控制台'" class="store-dropdown" trigger="click" popper-class="light-bites-dropdown" @command="selectStore">
             <el-button class="store-switch"><AppIcon name="store"/><span>{{ selectedStore }}</span></el-button>
-            <template #dropdown><el-dropdown-menu><el-dropdown-item v-for="store in stores" :key="store" :command="store" :class="{ selected: selectedStore === store }"><span>{{ store }}</span><AppIcon v-if="selectedStore === store" name="check"/></el-dropdown-item></el-dropdown-menu></template>
+            <template #dropdown><el-dropdown-menu><el-dropdown-item v-for="store in storeList" :key="store" :command="store" :class="{ selected: selectedStore === store }"><span>{{ store }}</span><AppIcon v-if="selectedStore === store" name="check"/></el-dropdown-item></el-dropdown-menu></template>
           </el-dropdown>
 
           <el-popover v-model:visible="notificationVisible" placement="bottom-end" :width="360" trigger="click" popper-class="notification-popover">
@@ -313,7 +426,7 @@ onBeforeUnmount(() => {
         </div>
       </header>
 
-      <StoreManagement v-if="activeSection === '门店管理'" />
+      <StoreManagement v-if="activeSection === '门店管理'" :query="searchQuery" @stores-changed="onStoresChanged" />
       <ProductCatalog v-else-if="activeSection === '产品目录'" :query="searchQuery" />
       <EmployeeManagement v-else-if="['员工管理', '系统日志'].includes(activeSection)" :query="searchQuery" :initial-tab="activeSection === '系统日志' ? 'logs' : 'employees'" @tab-change="activeSection = $event === 'logs' ? '系统日志' : '员工管理'" />
       <MemberManagement v-else-if="activeSection === '会员系统'" :query="searchQuery" />
@@ -321,12 +434,13 @@ onBeforeUnmount(() => {
       <OrderManagement v-else-if="activeSection === '订单管理'" :query="searchQuery" />
       <InventoryManagement v-else-if="activeSection === '原料管理'" :query="searchQuery" />
       <SupplierManagement v-else-if="activeSection === '供应商'" :query="searchQuery" />
-      <div v-else class="dashboard-content">
+      <div v-else class="dashboard-content" v-loading="useBackend && dashboardLoading">
+        <p v-if="useBackend && dashboardError" class="dashboard-error" role="alert">{{ dashboardError }}</p>
         <section class="page-heading">
           <div><h1>管理概览</h1><p>欢迎回来！这是轻食点中心店的实时运营数据。</p></div>
           <el-dropdown trigger="click" popper-class="date-dropdown" @command="selectDate">
-            <el-button class="date-button" :aria-label="selectedDate"><AppIcon name="calendar"/><span>{{ selectedDate }}</span><AppIcon class="chevron" name="chevron"/></el-button>
-            <template #dropdown><el-dropdown-menu><el-dropdown-item v-for="date in dateOptions" :key="date.value" :command="date.value" :class="{ selected: selectedDate === date.value }"><span>{{ date.label }}</span><small>{{ date.meta }}</small></el-dropdown-item></el-dropdown-menu></template>
+            <el-button class="date-button" :aria-label="selectedDateLabel"><AppIcon name="calendar"/><span>{{ selectedDateLabel }}</span><AppIcon class="chevron" name="chevron"/></el-button>
+            <template #dropdown><el-dropdown-menu><el-dropdown-item v-for="date in dateOptionsList" :key="date.value" :command="date.value" :class="{ selected: selectedDateKey === date.value }"><span>{{ date.label }}</span><small>{{ date.meta }}</small></el-dropdown-item></el-dropdown-menu></template>
           </el-dropdown>
         </section>
 
@@ -368,7 +482,7 @@ onBeforeUnmount(() => {
     <div class="modal-header"><div><span class="eyebrow">快速创建</span><h2>新建订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="orderDialogVisible = false"><AppIcon name="close"/></el-button></div>
     <el-form label-position="top" @submit.prevent="createOrder">
       <div class="form-row"><el-form-item label="顾客姓名"><el-input v-model="orderForm.customer" placeholder="输入顾客姓名"/></el-form-item><el-form-item label="关联会员"><el-select v-model="orderForm.memberId" placeholder="散客（不累计积分）" clearable popper-class="order-form-popper" :teleported="true" @change="selectOrderMember"><el-option v-for="member in memberStore.members" :key="member.id" :label="`${member.name} · ${member.tier}`" :value="member.id"/></el-select></el-form-item></div>
-      <el-form-item label="选择产品"><el-select v-model="orderForm.product"><el-option v-for="product in Object.keys(productPrices)" :key="product" :label="product" :value="product"/></el-select></el-form-item>
+      <el-form-item label="选择产品"><el-select v-model="orderForm.product"><el-option v-for="product in productCatalog" :key="product" :label="product" :value="product"/></el-select></el-form-item>
       <div class="form-row"><el-form-item label="数量"><div class="quantity-stepper"><el-button class="quantity-step-button" aria-label="减少数量" :disabled="orderForm.quantity <= 1" @click="decreaseQuantity">−</el-button><el-input-number v-model="orderForm.quantity" :min="1" :max="20" :controls="false" aria-label="订单数量"/><el-button class="quantity-step-button" aria-label="增加数量" :disabled="orderForm.quantity >= 20" @click="increaseQuantity">+</el-button></div></el-form-item><el-form-item label="就餐方式"><el-select v-model="orderForm.method"><el-option v-for="method in ['堂食','外带','外卖']" :key="method" :label="method" :value="method"/></el-select></el-form-item></div>
       <el-form-item label="备注"><el-input v-model="orderForm.note" type="textarea" :rows="3" placeholder="过敏信息、口味偏好等"/></el-form-item>
       <div class="drawer-actions"><el-button @click="orderDialogVisible = false">取消</el-button><el-button type="primary" native-type="submit">创建订单</el-button></div>

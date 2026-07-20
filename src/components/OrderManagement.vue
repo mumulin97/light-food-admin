@@ -1,7 +1,9 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
+import { useOrders } from '../composables/useOrders'
+import { formatRangeLabel } from '../services/ordersApi'
 import { orderStore, setOrderStatus, STATUS_META, ALL_STATUSES } from '../stores/orders'
 import { findMember } from '../stores/members'
 
@@ -13,6 +15,8 @@ const TOTAL_ORDERS = 248
 const pageSize = 6
 const FILTER_STATUSES = ['全部', ...ALL_STATUSES]
 
+const { enabled: useBackend, orders, loading, error: ordersLoadError, loadOrders, saveOrderState, listRange } = useOrders()
+
 const orderPage = ref(1)
 const refreshing = ref(false)
 
@@ -20,15 +24,18 @@ const draftOrderId = ref('')
 const draftStatus = ref('全部')
 const appliedOrderId = ref('')
 const appliedStatus = ref('全部')
-const dateRangeLabel = '2023年10月20日 – 2023年10月24日'
+
+const dateRangeLabel = computed(() => formatRangeLabel(listRange.value.from, listRange.value.to))
 
 const detailVisible = ref(false)
 const detailOrder = ref(null)
 
+const allOrders = computed(() => (useBackend ? orders.value : orderStore.orders))
+
 const filteredOrders = computed(() => {
   const keyword = props.query.trim().toLowerCase()
   const idKeyword = appliedOrderId.value.trim().toLowerCase()
-  return orderStore.orders.filter(order => {
+  return allOrders.value.filter(order => {
     const queryMatched = !keyword || order.id.toLowerCase().includes(keyword) || order.customer.toLowerCase().includes(keyword) || order.items.some(([name]) => name.toLowerCase().includes(keyword))
     const idMatched = !idKeyword || order.id.toLowerCase().includes(idKeyword)
     const statusMatched = appliedStatus.value === '全部' || order.status === appliedStatus.value
@@ -38,7 +45,7 @@ const filteredOrders = computed(() => {
 
 const hasFilter = computed(() => Boolean(props.query.trim() || appliedOrderId.value.trim() || appliedStatus.value !== '全部'))
 const pageOrders = computed(() => filteredOrders.value.slice((orderPage.value - 1) * pageSize, orderPage.value * pageSize))
-const totalLabel = computed(() => (hasFilter.value ? filteredOrders.value.length : TOTAL_ORDERS).toLocaleString('en-US'))
+const totalLabel = computed(() => (useBackend || hasFilter.value ? filteredOrders.value.length : TOTAL_ORDERS).toLocaleString('en-US'))
 const orderRange = computed(() => {
   const total = filteredOrders.value.length
   if (!total) return '没有符合条件的订单'
@@ -48,6 +55,14 @@ const orderRange = computed(() => {
 })
 
 watch([() => props.query, appliedOrderId, appliedStatus], () => { orderPage.value = 1 })
+
+onMounted(() => {
+  if (useBackend) {
+    appliedStatus.value = '全部'
+    draftStatus.value = '全部'
+    loadOrders().catch(() => {})
+  }
+})
 
 function formatMoney(value) {
   return `¥${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -67,19 +82,25 @@ function applyFilters() {
   ElMessage({ message: '筛选条件已应用', type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
-function changeStatus(order, status) {
-  const { consumed, accrued } = setOrderStatus(order, status)
-  const parts = [`订单 ${order.id} 已更新为「${status}」`]
-  if (consumed.length) parts.push(`已扣减原料：${consumed.map(item => `${item.name} ${item.amount}${item.unit}`).join('、')}`)
-  if (accrued) {
-    parts.push(`${accrued.member.name} +${accrued.gainedPoints} 积分`)
-    if (accrued.upgraded) parts.push(`已升级为${accrued.tier}`)
+async function changeStatus(order, status) {
+  try {
+    const { consumed, accrued } = setOrderStatus(order, status)
+    if (useBackend) await saveOrderState(order)
+    const parts = [`订单 ${order.id} 已更新为「${status}」`]
+    if (consumed.length) parts.push(`已扣减原料：${consumed.map(item => `${item.name} ${item.amount}${item.unit}`).join('、')}`)
+    if (accrued) {
+      parts.push(`${accrued.member.name} +${accrued.gainedPoints} 积分`)
+      if (accrued.upgraded) parts.push(`已升级为${accrued.tier}`)
+    }
+    ElMessage({ message: parts.join('，'), type: 'success', customClass: 'light-bites-message', duration: 2400 })
+  } catch (e) {
+    ElMessage({ message: e.message || '更新订单状态失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
   }
-  ElMessage({ message: parts.join('，'), type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
 function memberName(order) {
-  const member = order.memberId ? findMember(order.memberId) : null
+  if (!order.memberId) return '散客'
+  const member = findMember(order.memberId) || findMember(Number(order.memberId))
   return member ? `${member.name} · ${member.tier}` : '散客'
 }
 
@@ -88,12 +109,24 @@ function openDetail(order) {
   detailVisible.value = true
 }
 
-function refreshOrders() {
+async function refreshOrders() {
+  if (!useBackend) {
+    refreshing.value = true
+    window.setTimeout(() => {
+      refreshing.value = false
+      ElMessage({ message: '订单列表已刷新', type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    }, 700)
+    return
+  }
   refreshing.value = true
-  window.setTimeout(() => {
-    refreshing.value = false
+  try {
+    await loadOrders()
     ElMessage({ message: '订单列表已刷新', type: 'success', customClass: 'light-bites-message', duration: 2400 })
-  }, 700)
+  } catch (e) {
+    ElMessage({ message: e.message || '刷新失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+  } finally {
+    refreshing.value = false
+  }
 }
 
 function exportOrders() {
@@ -110,7 +143,8 @@ function exportOrders() {
 </script>
 
 <template>
-  <div class="order-content">
+  <div class="order-content" v-loading="useBackend && loading">
+    <p v-if="useBackend && ordersLoadError" class="dashboard-error" role="alert">{{ ordersLoadError }}（若提示缺少列，请在 Supabase 执行 supabase/migrations/003_order_flags.sql）</p>
     <section class="order-page-heading">
       <div><h1>订单管理</h1><p>实时监控并更新当前活跃订单状态。</p></div>
       <div class="order-heading-actions">

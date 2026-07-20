@@ -43,6 +43,8 @@ create table if not exists public.orders (
   method text not null check (method in ('堂食', '外带', '外卖')),
   note text,
   member_id text,
+  ingredients_deducted boolean not null default false,
+  points_accrued boolean not null default false,
   created_at timestamptz not null default now()
 );
 

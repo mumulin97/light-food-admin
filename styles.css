@@ -391,7 +391,34 @@ td:last-child, th:last-child { padding-right: 0; text-align: right; font-weight:
 .member-balance-drawer .el-drawer__body,
 .campaign-drawer .el-drawer__body,
 .employee-drawer .el-drawer__body,
-.order-form-drawer .el-drawer__body { padding: 26px; display: flex; flex-direction: column; }
+.order-form-drawer .el-drawer__body { padding: 26px; display: flex; flex-direction: column; overflow: visible; }
+.order-form-drawer .order-create-form { overflow: visible; }
+.order-form-drawer .order-form-row-member { position: relative; z-index: 4; }
+.order-form-drawer .order-member-field { position: relative; z-index: 5; }
+.order-form-drawer .order-form-drawer-actions { position: relative; z-index: 1; flex-shrink: 0; margin-top: 8px; }
+.order-form-popper,
+.el-select__popper.order-form-popper,
+.el-popper.order-form-popper {
+  z-index: 100001 !important;
+  overflow: hidden;
+  max-height: min(280px, 50vh);
+}
+.order-form-popper .el-select-dropdown__wrap,
+.order-form-popper .el-scrollbar__wrap {
+  max-height: min(260px, 48vh) !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+.order-form-popper .el-select-dropdown__list {
+  padding: 6px 0;
+}
+.order-form-popper .el-select-dropdown__item {
+  height: auto;
+  min-height: 34px;
+  line-height: 1.35;
+  padding: 8px 12px;
+  white-space: normal;
+}
 .store-drawer .modal-header h2,
 .supplier-drawer .modal-header h2,
 .supplier-detail-drawer .modal-header h2,
@@ -611,11 +638,6 @@ td:last-child, th:last-child { padding-right: 0; text-align: right; font-weight:
 .order-form-drawer .el-input-number { width: 100%; }
 .order-form-drawer .el-input-number .el-input__wrapper { min-height: 44px; border-radius: 12px; background: #fbfdfb; box-shadow: 0 0 0 1px #d6dfd9 inset; }
 .order-form-drawer .el-input-number .el-input__wrapper.is-focus { box-shadow: 0 0 0 1px var(--primary-bright) inset, 0 0 0 3px rgba(76,175,80,.12); }
-.order-form-popper,
-.el-select-dropdown.order-form-popper,
-.el-popper.order-form-popper {
-  z-index: 100000 !important;
-}
 .employee-drawer .modal-header { margin-bottom: 28px; }
 .employee-drawer .drawer-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
 .employee-drawer .drawer-actions .el-button { min-height: 44px; padding: 0 24px; border-radius: 12px; font-weight: 700; }

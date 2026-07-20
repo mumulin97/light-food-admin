@@ -30,7 +30,8 @@ export function tierForSpent(spent) {
 }
 
 export function findMember(id) {
-  return memberStore.members.find(item => item.id === id)
+  if (id == null || id === '') return null
+  return memberStore.members.find(item => item.id === id || String(item.id) === String(id))
 }
 
 // 订单完成：为关联会员累计消费与积分，必要时升级等级

@@ -15,6 +15,7 @@ import {
   listRecentDates,
   localIsoDate,
 } from '../services/dashboard'
+import { useOrders } from './useOrders'
 
 const defaultMetrics = { orders: '—', revenue: '—', products: '—', alerts: '—' }
 
@@ -108,6 +109,7 @@ export function useDashboard() {
     })
     selectedDateIso.value = localIsoDate()
     await refresh()
+    await useOrders().loadOrders()
     return id
   }
 

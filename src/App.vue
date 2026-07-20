@@ -298,7 +298,7 @@ async function createOrder() {
       })
       Object.assign(orderForm, { customer: '', memberId: null, product: '抹茶能量碗', quantity: 1, method: '堂食', note: '' })
       orderDialogVisible.value = false
-      success(`订单 ${id} 已创建，请在控制台「最新订单」查看（订单管理页尚未接库）`)
+      success(`订单 ${id} 已创建，可在控制台与订单管理中查看`)
     } catch (e) {
       ElMessage({ message: e.message || '创建订单失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
     }
@@ -478,15 +478,44 @@ onBeforeUnmount(() => {
     </main>
   </div>
 
-  <el-drawer v-model="orderDialogVisible" class="order-form-drawer" size="540px" :with-header="false">
+  <el-drawer v-model="orderDialogVisible" class="order-form-drawer" size="540px" :with-header="false" append-to-body>
     <div class="modal-header"><div><span class="eyebrow">快速创建</span><h2>新建订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="orderDialogVisible = false"><AppIcon name="close"/></el-button></div>
-    <el-form label-position="top" @submit.prevent="createOrder">
-      <div class="form-row"><el-form-item label="顾客姓名"><el-input v-model="orderForm.customer" placeholder="输入顾客姓名"/></el-form-item><el-form-item label="关联会员"><el-select v-model="orderForm.memberId" placeholder="散客（不累计积分）" clearable popper-class="order-form-popper" :teleported="true" @change="selectOrderMember"><el-option v-for="member in memberStore.members" :key="member.id" :label="`${member.name} · ${member.tier}`" :value="member.id"/></el-select></el-form-item></div>
-      <el-form-item label="选择产品"><el-select v-model="orderForm.product"><el-option v-for="product in productCatalog" :key="product" :label="product" :value="product"/></el-select></el-form-item>
-      <div class="form-row"><el-form-item label="数量"><div class="quantity-stepper"><el-button class="quantity-step-button" aria-label="减少数量" :disabled="orderForm.quantity <= 1" @click="decreaseQuantity">−</el-button><el-input-number v-model="orderForm.quantity" :min="1" :max="20" :controls="false" aria-label="订单数量"/><el-button class="quantity-step-button" aria-label="增加数量" :disabled="orderForm.quantity >= 20" @click="increaseQuantity">+</el-button></div></el-form-item><el-form-item label="就餐方式"><el-select v-model="orderForm.method"><el-option v-for="method in ['堂食','外带','外卖']" :key="method" :label="method" :value="method"/></el-select></el-form-item></div>
+    <el-form label-position="top" class="order-create-form" @submit.prevent="createOrder">
+      <div class="form-row order-form-row-member">
+        <el-form-item label="顾客姓名"><el-input v-model="orderForm.customer" placeholder="输入顾客姓名"/></el-form-item>
+        <el-form-item label="关联会员" class="order-member-field">
+          <el-select
+            v-model="orderForm.memberId"
+            placeholder="散客（不累计积分）"
+            clearable
+            filterable
+            :max-height="240"
+            placement="bottom-start"
+            :teleported="true"
+            popper-class="order-form-popper"
+            :popper-options="{ strategy: 'fixed' }"
+            @change="selectOrderMember"
+          >
+            <el-option v-for="member in memberStore.members" :key="member.id" :label="`${member.name} · ${member.tier}`" :value="member.id"/>
+          </el-select>
+        </el-form-item>
+      </div>
+      <el-form-item label="选择产品">
+        <el-select v-model="orderForm.product" :max-height="240" :teleported="true" popper-class="order-form-popper" :popper-options="{ strategy: 'fixed' }">
+          <el-option v-for="product in productCatalog" :key="product" :label="product" :value="product"/>
+        </el-select>
+      </el-form-item>
+      <div class="form-row">
+        <el-form-item label="数量"><div class="quantity-stepper"><el-button class="quantity-step-button" aria-label="减少数量" :disabled="orderForm.quantity <= 1" @click="decreaseQuantity">−</el-button><el-input-number v-model="orderForm.quantity" :min="1" :max="20" :controls="false" aria-label="订单数量"/><el-button class="quantity-step-button" aria-label="增加数量" :disabled="orderForm.quantity >= 20" @click="increaseQuantity">+</el-button></div></el-form-item>
+        <el-form-item label="就餐方式">
+          <el-select v-model="orderForm.method" :teleported="true" popper-class="order-form-popper" :popper-options="{ strategy: 'fixed' }">
+            <el-option v-for="method in ['堂食','外带','外卖']" :key="method" :label="method" :value="method"/>
+          </el-select>
+        </el-form-item>
+      </div>
       <el-form-item label="备注"><el-input v-model="orderForm.note" type="textarea" :rows="3" placeholder="过敏信息、口味偏好等"/></el-form-item>
-      <div class="drawer-actions"><el-button @click="orderDialogVisible = false">取消</el-button><el-button type="primary" native-type="submit">创建订单</el-button></div>
     </el-form>
+    <div class="drawer-actions order-form-drawer-actions"><el-button @click="orderDialogVisible = false">取消</el-button><el-button type="primary" @click="createOrder">创建订单</el-button></div>
   </el-drawer>
 
   <el-drawer v-model="settingsVisible" class="settings-drawer" size="430px" :with-header="false">

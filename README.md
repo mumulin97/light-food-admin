@@ -20,7 +20,7 @@ pnpm dev
 ## Supabase（控制台已接数据库）
 
 1. 在 [Supabase](https://supabase.com) 创建项目。
-2. **SQL Editor** 中执行 [`supabase/schema.sql`](supabase/schema.sql)（新建项目）。若之前已执行过旧版 schema，再执行 [`supabase/migrations/002_store_fields.sql`](supabase/migrations/002_store_fields.sql) 扩展门店字段。
+2. **SQL Editor** 中执行 [`supabase/schema.sql`](supabase/schema.sql)（新建项目）。若之前已执行过旧版 schema，再依次执行 [`supabase/migrations/002_store_fields.sql`](supabase/migrations/002_store_fields.sql)、[`supabase/migrations/003_order_flags.sql`](supabase/migrations/003_order_flags.sql)。
 3. **Authentication → Users** 创建管理员用户（邮箱 + 密码）。
 4. **Project Settings → API** 复制 URL 与 `anon` key。
 5. 复制 `.env.example` 为 `.env.local` 并填写：
@@ -45,9 +45,9 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 | 指标卡片 | `orders`、`products`、`ingredients` |
 | 营收图表 | `orders` 按日汇总 |
 | 畅销榜 | `order_items` + `orders` |
-| 最新订单 / 新建订单 | `orders`、`order_items` |
+| 最新订单 / 新建订单 / **订单管理** | `orders`、`order_items` |
 
-其他菜单页仍为前端 mock，**门店管理**已与 Supabase 同步；后续可按同样方式迁移。
+其他菜单页仍为前端 mock；**控制台、门店管理、订单管理（含新建订单）** 已与 Supabase 同步。
 
 ## Netlify 部署
 

@@ -20,7 +20,7 @@ pnpm dev
 ## Supabase（控制台已接数据库）
 
 1. 在 [Supabase](https://supabase.com) 创建项目。
-2. **SQL Editor** 中执行 [`supabase/schema.sql`](supabase/schema.sql)（新建项目）。若之前已执行过旧版 schema，再依次执行 [`supabase/migrations/002_store_fields.sql`](supabase/migrations/002_store_fields.sql)、[`supabase/migrations/003_order_flags.sql`](supabase/migrations/003_order_flags.sql)。
+2. **SQL Editor** 中执行 [`supabase/schema.sql`](supabase/schema.sql)（新建项目）。若之前已执行过旧版 schema，再依次执行 [`002_store_fields.sql`](supabase/migrations/002_store_fields.sql)、[`003_order_flags.sql`](supabase/migrations/003_order_flags.sql)、[`004_products_catalog.sql`](supabase/migrations/004_products_catalog.sql)、[`005_remaining_modules.sql`](supabase/migrations/005_remaining_modules.sql)。
 3. **Authentication → Users** 创建管理员用户（邮箱 + 密码）。
 4. **Project Settings → API** 复制 URL 与 `anon` key。
 5. 复制 `.env.example` 为 `.env.local` 并填写：
@@ -36,6 +36,8 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 
 6. 重启 `pnpm dev`，使用 Supabase 邮箱密码登录。
 
+路由使用 **HTML5 History**（如 `/orders`、`/stores`），刷新会留在当前页。Netlify 已通过 `netlify.toml` 配置 SPA 回退。
+
 ### 控制台数据来源
 
 | 模块 | 表 |
@@ -45,9 +47,16 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 | 指标卡片 | `orders`、`products`、`ingredients` |
 | 营收图表 | `orders` 按日汇总 |
 | 畅销榜 | `order_items` + `orders` |
+| 产品目录 / 添加菜品 | `products`（完整字段） |
 | 最新订单 / 新建订单 / **订单管理** | `orders`、`order_items` |
+| **原料管理** | `ingredients` |
+| **供应商** | `suppliers` |
+| **会员系统** | `members` |
+| **营销活动** | `marketing_campaigns` |
+| **员工管理** | `employees` |
+| **系统日志** | `system_logs` |
 
-其他菜单页仍为前端 mock；**控制台、门店管理、订单管理（含新建订单）** 已与 Supabase 同步。
+配置 Supabase 并登录后，上述菜单均从数据库读写（RLS 需 `authenticated`）。未配置时仍为本地演示数据。
 
 ## Netlify 部署
 

@@ -1,15 +1,20 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import memberPortraits from '../assets/employee-portraits.png'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { createMember, syncMemberStore, updateMemberBalance } from '../services/membersApi'
 import { memberStore } from '../stores/members'
 
 const props = defineProps({
   query: { type: String, default: '' },
 })
 
-const TOTAL_MEMBERS = 12845
+const useBackend = isSupabaseConfigured()
+const loading = ref(false)
+const loadError = ref('')
+const saving = ref(false)
 
 const memberPage = ref(1)
 const pageSize = 3
@@ -28,7 +33,11 @@ const filteredMembers = computed(() => {
 })
 
 const pageMembers = computed(() => filteredMembers.value.slice((memberPage.value - 1) * pageSize, memberPage.value * pageSize))
-const totalLabel = computed(() => (props.query.trim() ? filteredMembers.value.length : TOTAL_MEMBERS).toLocaleString('en-US'))
+const totalLabel = computed(() => {
+  const base = memberStore.members.length
+  return (props.query.trim() ? filteredMembers.value.length : base).toLocaleString('en-US')
+})
+const memberCountDisplay = computed(() => memberStore.members.length || (useBackend ? 0 : 12845))
 const memberRange = computed(() => {
   const total = filteredMembers.value.length
   if (!total) return '没有符合条件的会员'
@@ -38,6 +47,22 @@ const memberRange = computed(() => {
 })
 
 watch(() => props.query, () => { memberPage.value = 1 })
+
+async function loadMembers() {
+  if (!useBackend || !supabase) return
+  loading.value = true
+  loadError.value = ''
+  try {
+    await syncMemberStore(supabase)
+  } catch (e) {
+    loadError.value = e.message || '加载会员失败'
+    ElMessage({ message: loadError.value, type: 'error', customClass: 'light-bites-message', duration: 3200 })
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadMembers)
 
 function tierClass(tier) {
   return tier === '钻石会员' ? 'diamond' : tier === '黄金会员' ? 'gold' : 'silver'
@@ -52,25 +77,46 @@ function openAdd() {
   addVisible.value = true
 }
 
-function saveMember() {
+async function saveMember() {
   if (!addForm.name.trim() || !/^[\d-]{7,}$/.test(addForm.phone.trim())) {
     ElMessage({ message: '请填写会员姓名和有效手机号', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
     return
   }
-  memberStore.members.unshift({
-    id: Date.now(),
+  const draft = {
     name: addForm.name.trim(),
     phone: addForm.phone.trim(),
     tier: addForm.tier,
     points: Number(addForm.points) || 0,
     balance: Number(addForm.balance) || 0,
     spent: 0,
-    joined: new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '年').replace(/年(\d+)年(\d+)$/, '年$1月$2日'),
     portraitIndex: memberStore.members.length % 6,
+  }
+  if (useBackend && supabase) {
+    saving.value = true
+    try {
+      const created = await createMember(supabase, draft)
+      memberStore.members.unshift(created)
+      memberPage.value = 1
+      addVisible.value = false
+      ElMessage({ message: `会员 ${created.name} 已添加`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (e) {
+      const msg = e.message?.includes('duplicate') || e.code === '23505'
+        ? '该手机号已注册'
+        : (e.message || '添加会员失败')
+      ElMessage({ message: msg, type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+  memberStore.members.unshift({
+    id: Date.now(),
+    ...draft,
+    joined: new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '年').replace(/年(\d+)年(\d+)$/, '年$1月$2日'),
   })
   memberPage.value = 1
   addVisible.value = false
-  ElMessage({ message: `会员 ${addForm.name.trim()} 已添加`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+  ElMessage({ message: `会员 ${draft.name} 已添加`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
 function openBalance(member) {
@@ -79,13 +125,29 @@ function openBalance(member) {
   balanceVisible.value = true
 }
 
-function saveBalance() {
+async function saveBalance() {
   const member = balanceTarget.value
   if (!member) return
   const amount = Number(balanceForm.amount) || 0
-  if (balanceForm.mode === 'set') member.balance = Math.max(0, amount)
-  if (balanceForm.mode === 'add') member.balance = Math.max(0, member.balance + amount)
-  if (balanceForm.mode === 'subtract') member.balance = Math.max(0, member.balance - amount)
+  let next = member.balance
+  if (balanceForm.mode === 'set') next = Math.max(0, amount)
+  if (balanceForm.mode === 'add') next = Math.max(0, member.balance + amount)
+  if (balanceForm.mode === 'subtract') next = Math.max(0, member.balance - amount)
+  if (useBackend && supabase) {
+    saving.value = true
+    try {
+      await updateMemberBalance(supabase, member.id, next)
+      member.balance = next
+      balanceVisible.value = false
+      ElMessage({ message: `${member.name} 的余额已更新为 ${formatMoney(member.balance)}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (e) {
+      ElMessage({ message: e.message || '更新余额失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+  member.balance = next
   balanceVisible.value = false
   ElMessage({ message: `${member.name} 的余额已更新为 ${formatMoney(member.balance)}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
@@ -116,11 +178,12 @@ function portraitStyle(index) {
 </script>
 
 <template>
-  <div class="membership-content">
+  <div class="membership-content" v-loading="useBackend && loading">
+    <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="member-metrics member-metrics-2" aria-label="会员经营指标">
       <article class="member-metric-card">
         <p>活跃会员总数</p>
-        <div class="metric-line"><strong class="metric-figure green">{{ TOTAL_MEMBERS.toLocaleString('en-US') }}</strong><span class="metric-up"><AppIcon name="arrow" />12%</span></div>
+        <div class="metric-line"><strong class="metric-figure green">{{ memberCountDisplay.toLocaleString('en-US') }}</strong><span class="metric-up"><AppIcon name="arrow" />12%</span></div>
       </article>
       <article class="member-metric-card">
         <p>月均消费额</p>
@@ -146,7 +209,7 @@ function portraitStyle(index) {
           <el-table-column label="余额" min-width="104"><template #default="{ row }"><strong class="member-balance">{{ formatMoney(row.balance) }}</strong></template></el-table-column>
           <el-table-column label="累计消费" min-width="118"><template #default="{ row }"><span class="member-spent">{{ formatMoney(row.spent) }}</span></template></el-table-column>
           <el-table-column label="加入日期" min-width="128"><template #default="{ row }"><span class="member-joined">{{ row.joined }}</span></template></el-table-column>
-          <el-table-column label="操作" width="112" align="right"><template #default="{ row }"><div class="member-actions"><button type="button" @click="openBalance(row)">调整余额</button><button type="button" @click="viewOrders(row)">查看订单</button></div></template></el-table-column>
+          <el-table-column label="操作" width="168" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><div class="table-row-actions"><button type="button" class="table-action-link" @click="openBalance(row)">调整余额</button><button type="button" class="table-action-link" @click="viewOrders(row)">查看订单</button></div></template></el-table-column>
         </el-table>
         <footer class="member-table-footer"><span>{{ memberRange }}</span><el-pagination v-model:current-page="memberPage" background layout="prev, pager, next" :page-size="pageSize" :total="filteredMembers.length" :pager-count="5" /></footer>
       </div>

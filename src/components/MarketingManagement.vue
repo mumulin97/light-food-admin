@@ -1,20 +1,29 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { createCampaign, fetchCampaigns, setCampaignEnabled } from '../services/campaignsApi'
 
 const props = defineProps({
   query: { type: String, default: '' },
 })
 
+const useBackend = isSupabaseConfigured()
+const loading = ref(false)
+const loadError = ref('')
+const saving = ref(false)
+
 const campaignVisible = ref(false)
 const campaignForm = reactive({ name: '', desc: '', expiry: '长期有效' })
 
-const campaigns = ref([
+const seedCampaigns = [
   { id: 1, name: '满减大促', icon: 'piggy', desc: '单笔订单满 ¥50 减 ¥10。适用于所有午餐菜单。', enabled: true, usageLabel: '使用次数', usage: '1,240 次', roi: '+18.5%', expiry: '14 天后过期' },
   { id: 2, name: '超值套餐', icon: 'receipt', desc: '购买任意沙拉即可享受鲜榨果汁 5 折优惠。', enabled: true, usageLabel: '使用次数', usage: '856 次', roi: '+12.2%', expiry: '长期有效' },
   { id: 3, name: '节日狂欢', icon: 'party', desc: '10 人以上团体订餐可享 8 折优惠专享套餐。', enabled: false, usageLabel: '历史使用', usage: '2,410 次', roi: '无数据', expiry: '计划于 12 月 1 日上线', scheduled: true },
-])
+]
+
+const campaigns = ref(useBackend ? [] : seedCampaigns)
 
 const filteredCampaigns = computed(() => {
   const keyword = props.query.trim().toLowerCase()
@@ -22,7 +31,33 @@ const filteredCampaigns = computed(() => {
   return campaigns.value.filter(item => item.name.toLowerCase().includes(keyword) || item.desc.toLowerCase().includes(keyword))
 })
 
-function toggleCampaign(campaign) {
+async function loadCampaigns() {
+  if (!useBackend || !supabase) return
+  loading.value = true
+  loadError.value = ''
+  try {
+    campaigns.value = await fetchCampaigns(supabase)
+  } catch (e) {
+    loadError.value = e.message || '加载营销活动失败'
+    ElMessage({ message: loadError.value, type: 'error', customClass: 'light-bites-message', duration: 3200 })
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadCampaigns)
+
+async function toggleCampaign(campaign) {
+  if (useBackend && supabase) {
+    try {
+      await setCampaignEnabled(supabase, campaign.id, campaign.enabled)
+      ElMessage({ message: `活动「${campaign.name}」已${campaign.enabled ? '启用' : '禁用'}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (e) {
+      campaign.enabled = !campaign.enabled
+      ElMessage({ message: e.message || '更新活动状态失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    }
+    return
+  }
   ElMessage({ message: `活动「${campaign.name}」已${campaign.enabled ? '启用' : '禁用'}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
@@ -31,13 +66,12 @@ function openCampaign() {
   campaignVisible.value = true
 }
 
-function saveCampaign() {
+async function saveCampaign() {
   if (!campaignForm.name.trim() || !campaignForm.desc.trim()) {
     ElMessage({ message: '请填写活动名称和描述', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
     return
   }
-  campaigns.value.unshift({
-    id: Date.now(),
+  const draft = {
     name: campaignForm.name.trim(),
     icon: 'megaphone',
     desc: campaignForm.desc.trim(),
@@ -46,9 +80,24 @@ function saveCampaign() {
     usage: '0 次',
     roi: '无数据',
     expiry: campaignForm.expiry,
-  })
+  }
+  if (useBackend && supabase) {
+    saving.value = true
+    try {
+      const created = await createCampaign(supabase, draft)
+      campaigns.value.unshift(created)
+      campaignVisible.value = false
+      ElMessage({ message: `活动「${created.name}」已创建`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (e) {
+      ElMessage({ message: e.message || '创建活动失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+  campaigns.value.unshift({ id: Date.now(), ...draft })
   campaignVisible.value = false
-  ElMessage({ message: `活动「${campaignForm.name.trim()}」已创建`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+  ElMessage({ message: `活动「${draft.name}」已创建`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
 function editCampaign(campaign) {
@@ -57,7 +106,8 @@ function editCampaign(campaign) {
 </script>
 
 <template>
-  <div class="membership-content">
+  <div class="membership-content" v-loading="useBackend && loading">
+    <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="marketing-metrics" aria-label="营销经营指标">
       <article class="member-metric-card accent">
         <p>活动转化率</p>

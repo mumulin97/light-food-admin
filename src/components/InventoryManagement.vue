@@ -1,14 +1,26 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import {
+  bulkAdjustStock,
+  createIngredient,
+  deleteIngredient,
+  syncInventoryStore,
+  updateIngredientStock,
+} from '../services/inventoryApi'
 import { inventoryStore, stockStatus, formatStock, receivePurchase, upsertIngredients } from '../stores/inventory'
 
 const props = defineProps({
   query: { type: String, default: '' },
 })
 
-const TOTAL_INGREDIENTS = 124
+const useBackend = isSupabaseConfigured()
+const loading = ref(false)
+const loadError = ref('')
+const saving = ref(false)
+
 const pageSize = 5
 const CATEGORY_TABS = ['全部', '蔬菜', '肉类', '粮油', '饮品']
 const CATEGORY_OPTIONS = ['蔬菜', '肉类', '粮油', '调料', '饮品底料']
@@ -41,7 +53,11 @@ const filteredIngredients = computed(() => {
 
 const hasFilter = computed(() => activeCategory.value !== '全部' || activeSupplier.value !== '所有供应商' || Boolean(props.query.trim()))
 const pageIngredients = computed(() => filteredIngredients.value.slice((invPage.value - 1) * pageSize, invPage.value * pageSize))
-const totalLabel = computed(() => (hasFilter.value ? filteredIngredients.value.length : TOTAL_INGREDIENTS).toLocaleString('en-US'))
+const totalLabel = computed(() => {
+  const base = inventoryStore.ingredients.length
+  return (hasFilter.value ? filteredIngredients.value.length : base).toLocaleString('en-US')
+})
+const ingredientTotalDisplay = computed(() => inventoryStore.ingredients.length || (useBackend ? 0 : 124))
 const invRange = computed(() => {
   const total = filteredIngredients.value.length
   if (!total) return '没有符合条件的原料'
@@ -60,6 +76,22 @@ const restockTotal = computed(() => restockList.value.reduce((sum, item) => sum 
 
 watch([activeCategory, activeSupplier, () => props.query], () => { invPage.value = 1 })
 
+async function loadInventory() {
+  if (!useBackend || !supabase) return
+  loading.value = true
+  loadError.value = ''
+  try {
+    await syncInventoryStore(supabase)
+  } catch (e) {
+    loadError.value = e.message || '加载原料失败'
+    ElMessage({ message: loadError.value, type: 'error', customClass: 'light-bites-message', duration: 3200 })
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadInventory)
+
 function formatMoney(value) {
   return `¥${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
@@ -69,15 +101,31 @@ function openAdd() {
   addVisible.value = true
 }
 
-function saveIngredient() {
+async function saveIngredient() {
   if (!addForm.name.trim() || !addForm.sku.trim()) {
     ElMessage({ message: '请填写原料名称和 SKU', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
     return
   }
-  inventoryStore.ingredients.unshift({ id: Date.now(), ...addForm, name: addForm.name.trim(), sku: addForm.sku.trim(), price: Number(addForm.price) || 0, stock: Number(addForm.stock) || 0, threshold: Number(addForm.threshold) || 0 })
+  const row = { ...addForm, name: addForm.name.trim(), sku: addForm.sku.trim(), price: Number(addForm.price) || 0, stock: Number(addForm.stock) || 0, threshold: Number(addForm.threshold) || 0 }
+  if (useBackend && supabase) {
+    saving.value = true
+    try {
+      const created = await createIngredient(supabase, row)
+      inventoryStore.ingredients.unshift(created)
+      invPage.value = 1
+      addVisible.value = false
+      ElMessage({ message: `原料「${created.name}」已新增`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (e) {
+      ElMessage({ message: e.message || '新增原料失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+  inventoryStore.ingredients.unshift({ id: Date.now(), ...row })
   invPage.value = 1
   addVisible.value = false
-  ElMessage({ message: `原料「${addForm.name.trim()}」已新增`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+  ElMessage({ message: `原料「${row.name}」已新增`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
 function openStock(item) {
@@ -86,21 +134,47 @@ function openStock(item) {
   stockVisible.value = true
 }
 
-function saveStock() {
+async function saveStock() {
   const item = stockTarget.value
   if (!item) return
   const amount = Number(stockForm.amount) || 0
-  if (stockForm.mode === 'in') item.stock = item.stock + amount
-  if (stockForm.mode === 'out') item.stock = Math.max(0, item.stock - amount)
-  if (stockForm.mode === 'set') item.stock = Math.max(0, amount)
+  let next = item.stock
+  if (stockForm.mode === 'in') next = item.stock + amount
+  if (stockForm.mode === 'out') next = Math.max(0, item.stock - amount)
+  if (stockForm.mode === 'set') next = Math.max(0, amount)
+  if (useBackend && supabase) {
+    saving.value = true
+    try {
+      await updateIngredientStock(supabase, item.id, next)
+      item.stock = next
+      stockVisible.value = false
+      ElMessage({ message: `${item.name} 当前库存已更新为 ${formatStock(item)}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (e) {
+      ElMessage({ message: e.message || '更新库存失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+  item.stock = next
   stockVisible.value = false
   ElMessage({ message: `${item.name} 当前库存已更新为 ${formatStock(item)}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
-function handleAction(command, item) {
+async function handleAction(command, item) {
   if (command === 'stock') openStock(item)
   if (command === 'edit') ElMessage({ message: `正在编辑「${item.name}」`, customClass: 'light-bites-message', duration: 2200 })
   if (command === 'delete') {
+    if (useBackend && supabase) {
+      try {
+        await deleteIngredient(supabase, item.id)
+        inventoryStore.ingredients = inventoryStore.ingredients.filter(row => row.id !== item.id)
+        ElMessage({ message: `原料「${item.name}」已删除`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+      } catch (e) {
+        ElMessage({ message: e.message || '删除失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+      }
+      return
+    }
     inventoryStore.ingredients = inventoryStore.ingredients.filter(row => row.id !== item.id)
     ElMessage({ message: `原料「${item.name}」已删除`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
   }
@@ -114,9 +188,31 @@ function generatePurchase() {
   purchaseVisible.value = true
 }
 
-function confirmPurchase() {
+async function confirmPurchase() {
   const amount = restockTotal.value
-  const received = receivePurchase(restockList.value.map(item => ({ sku: item.sku, suggest: item.suggest })))
+  const list = restockList.value
+  if (useBackend && supabase) {
+    saving.value = true
+    try {
+      const updates = list.map(item => ({
+        id: item.id,
+        stock: item.stock + item.suggest,
+      }))
+      await bulkAdjustStock(supabase, updates)
+      updates.forEach(u => {
+        const row = inventoryStore.ingredients.find(i => i.id === u.id)
+        if (row) row.stock = u.stock
+      })
+      purchaseVisible.value = false
+      ElMessage({ message: `采购单已生成并入库，共 ${list.length} 项原料，金额 ${formatMoney(amount)}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (e) {
+      ElMessage({ message: e.message || '入库失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+  const received = receivePurchase(list.map(item => ({ sku: item.sku, suggest: item.suggest })))
   purchaseVisible.value = false
   ElMessage({ message: `采购单已生成并入库，共 ${received.length} 项原料，金额 ${formatMoney(amount)}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
@@ -191,9 +287,10 @@ function exportIngredients() {
 </script>
 
 <template>
-  <div class="inventory-content">
+  <div class="inventory-content" v-loading="useBackend && loading">
+    <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="inv-metrics" aria-label="库存概况">
-      <article class="inv-card accent-green"><p>原料总数</p><div class="inv-figure-row"><strong>{{ TOTAL_INGREDIENTS }}</strong><span class="inv-trend"><AppIcon name="arrow" />+5</span></div></article>
+      <article class="inv-card accent-green"><p>原料总数</p><div class="inv-figure-row"><strong>{{ ingredientTotalDisplay }}</strong><span class="inv-trend"><AppIcon name="arrow" />+5</span></div></article>
       <article class="inv-card accent-red"><p>库存预警</p><div class="inv-figure-row"><strong class="danger">12</strong><span class="inv-need">需采购</span></div></article>
       <article class="inv-card accent-dark"><p>今日入库</p><div class="inv-figure-row"><strong>420kg</strong><span class="inv-sub">8 条记录</span></div></article>
       <article class="inv-card inv-suggest">
@@ -230,7 +327,7 @@ function exportIngredients() {
         <el-table-column label="当前库存" min-width="110"><template #default="{ row }"><strong v-if="stockStatus(row) === 'normal'" class="inv-stock">{{ formatStock(row) }}</strong><span v-else class="inv-stock-pill" :class="stockStatus(row)">{{ formatStock(row) }}</span></template></el-table-column>
         <el-table-column label="预警阈值" min-width="100"><template #default="{ row }"><span class="inv-threshold">{{ row.threshold }} {{ row.unit }}</span></template></el-table-column>
         <el-table-column label="供应商" min-width="120"><template #default="{ row }"><span class="inv-supplier">{{ row.supplier }}</span></template></el-table-column>
-        <el-table-column label="操作" width="150" align="right"><template #default="{ row }"><div class="inv-actions"><button type="button" class="inv-action-link" @click="openStock(row)">调整库存</button><el-dropdown trigger="click" popper-class="inv-action-menu" @command="handleAction($event, row)"><el-button class="inv-more-button" circle aria-label="更多操作"><AppIcon name="more" /></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="stock">调整库存</el-dropdown-item><el-dropdown-item command="edit">编辑资料</el-dropdown-item><el-dropdown-item command="delete" divided class="danger-text">删除原料</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></template></el-table-column>
+        <el-table-column label="操作" width="150" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><div class="table-row-actions"><button type="button" class="table-action-link" @click="openStock(row)">调整库存</button><el-dropdown class="table-op-dropdown" trigger="click" popper-class="table-action-menu" @command="handleAction($event, row)"><el-button class="table-more-button" circle aria-label="更多操作"><AppIcon name="more" /></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="stock">调整库存</el-dropdown-item><el-dropdown-item command="edit">编辑资料</el-dropdown-item><el-dropdown-item command="delete" divided class="danger-text">删除原料</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></template></el-table-column>
       </el-table>
       <footer class="member-table-footer"><span>{{ invRange }}</span><el-pagination v-model:current-page="invPage" background layout="prev, pager, next" :page-size="pageSize" :total="filteredIngredients.length" :pager-count="5" /></footer>
     </div>

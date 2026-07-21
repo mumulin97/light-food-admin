@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import {
   ElButton,
+  ElDatePicker,
   ElDialog,
   ElDrawer,
   ElDropdown,
@@ -21,6 +22,8 @@ import {
 } from 'element-plus'
 import 'element-plus/theme-chalk/base.css'
 import 'element-plus/theme-chalk/el-button.css'
+import 'element-plus/theme-chalk/el-date-picker.css'
+import 'element-plus/theme-chalk/el-date-picker-panel.css'
 import 'element-plus/theme-chalk/el-dialog.css'
 import 'element-plus/theme-chalk/el-drawer.css'
 import 'element-plus/theme-chalk/el-dropdown.css'
@@ -40,12 +43,15 @@ import 'element-plus/theme-chalk/el-table.css'
 import 'element-plus/theme-chalk/el-table-column.css'
 import 'element-plus/theme-chalk/el-tooltip.css'
 import App from './App.vue'
+import router from './router'
 import '../styles.css'
 
 const app = createApp(App)
+app.use(router)
 
 ;[
   ElButton,
+  ElDatePicker,
   ElDialog,
   ElDrawer,
   ElDropdown,

@@ -1,14 +1,26 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import employeePortraits from '../assets/employee-portraits.png'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import {
+  createEmployee,
+  fetchEmployees,
+  fetchSystemLogs,
+  updateEmployee,
+} from '../services/employeesApi'
 
 const props = defineProps({
   query: { type: String, default: '' },
   initialTab: { type: String, default: 'employees' },
 })
 const emit = defineEmits(['tab-change'])
+
+const useBackend = isSupabaseConfigured()
+const loading = ref(false)
+const loadError = ref('')
+const saving = ref(false)
 
 const seedEmployees = [
   ['马库斯·索恩', 'marcus.t@lightbites.com', '厨师长', '总店厨房 HQ', '在线', 'MS', '#d7eee0'],
@@ -37,7 +49,7 @@ const seedEmployees = [
   ['詹姆斯·马丁', 'james.m@lightbites.com', '配送员', '东区咖啡馆', '离线', 'JM', '#efe1e7'],
 ].map(([name, email, role, store, status, initials, avatarColor], index) => ({ id: index + 1, name, email, role, store, status, initials, avatarColor, portraitIndex: index % 6 }))
 
-const logs = ref([
+const seedLogs = [
   { id: 1, initials: 'SJ', user: '萨拉·詹宁斯', module: '订单', action: '创建', target: '订单号 #8841', ip: '192.168.1.45', time: '2023年10月24日 - 14:22:10', status: '成功' },
   { id: 2, initials: 'DM', user: '陈大卫', module: '产品', action: '编辑', target: 'SKU: LB-99', ip: '192.168.1.102', time: '2023年10月24日 - 14:15:04', status: '成功' },
   { id: 3, initials: 'SJ', user: '萨拉·詹宁斯', module: '用户', action: '删除', target: '访客: ID#20', ip: '192.168.1.45', time: '2023年10月24日 - 13:58:22', status: '失败' },
@@ -46,9 +58,11 @@ const logs = ref([
   { id: 6, initials: 'AT', user: '艾娃·托马斯', module: '排班', action: '发布', target: '西区本周排班', ip: '192.168.1.77', time: '2023年10月24日 - 11:50:08', status: '成功' },
   { id: 7, initials: 'SYS', user: '系统 内核', module: '同步', action: '同步', target: '门店设备 #03', ip: '127.0.0.1', time: '2023年10月24日 - 10:42:51', status: '失败' },
   { id: 8, initials: 'LX', user: '林晓雯', module: '产品', action: '创建', target: '低卡夏日套餐', ip: '192.168.1.63', time: '2023年10月24日 - 09:26:30', status: '成功' },
-])
+]
 
-const employees = ref(seedEmployees)
+const logs = ref(useBackend ? [] : seedLogs)
+
+const employees = ref(useBackend ? [] : seedEmployees)
 const activeTab = ref(props.initialTab)
 const employeePage = ref(1)
 const logPage = ref(1)
@@ -94,6 +108,27 @@ watch(filtersVisible, value => {
   draftStoreFilter.value = storeFilter.value
 })
 
+async function loadCurrentTab() {
+  if (!useBackend || !supabase) return
+  loading.value = true
+  loadError.value = ''
+  try {
+    if (props.initialTab === 'logs') {
+      logs.value = await fetchSystemLogs(supabase)
+    } else {
+      employees.value = await fetchEmployees(supabase)
+    }
+  } catch (e) {
+    loadError.value = e.message || '加载失败'
+    ElMessage({ message: loadError.value, type: 'error', customClass: 'light-bites-message', duration: 3200 })
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadCurrentTab)
+watch(() => props.initialTab, loadCurrentTab)
+
 function changeTab(tab) {
   activeTab.value = tab
   emit('tab-change', tab)
@@ -111,9 +146,36 @@ function editEmployee(employee) {
   dialogVisible.value = true
 }
 
-function saveEmployee() {
+async function saveEmployee() {
   if (!form.name.trim() || !form.email.includes('@')) {
     ElMessage({ message: '请填写员工姓名和有效邮箱', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
+    return
+  }
+  if (useBackend && supabase) {
+    saving.value = true
+    try {
+      if (editingId.value) {
+        const updated = await updateEmployee(supabase, editingId.value, form)
+        const idx = employees.value.findIndex(item => item.id === editingId.value)
+        if (idx >= 0) employees.value[idx] = updated
+        ElMessage({ message: '员工资料已更新', type: 'success', customClass: 'light-bites-message', duration: 2400 })
+      } else {
+        const initials = form.name.replace(/[^A-Za-z\u4e00-\u9fa5]/g, '').slice(0, 2).toUpperCase() || '新'
+        const created = await createEmployee(supabase, {
+          ...form,
+          initials,
+          avatarColor: '#dcefe3',
+          portraitIndex: employees.value.length % 6,
+        })
+        employees.value.unshift(created)
+        ElMessage({ message: '新员工已添加', type: 'success', customClass: 'light-bites-message', duration: 2400 })
+      }
+      dialogVisible.value = false
+    } catch (e) {
+      ElMessage({ message: e.message || '保存员工失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    } finally {
+      saving.value = false
+    }
     return
   }
   if (editingId.value) {
@@ -127,12 +189,23 @@ function saveEmployee() {
   dialogVisible.value = false
 }
 
-function handleEmployeeAction(command, employee) {
+async function handleEmployeeAction(command, employee) {
   if (command === 'edit') editEmployee(employee)
   if (command === 'schedule') ElMessage({ message: `已打开 ${employee.name} 的排班信息`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
   if (command === 'status') {
-    employee.status = employee.status === '离线' ? '在线' : '离线'
-    ElMessage({ message: `${employee.name} 已设为${employee.status}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    const next = employee.status === '离线' ? '在线' : '离线'
+    if (useBackend && supabase) {
+      try {
+        const updated = await updateEmployee(supabase, employee.id, { ...employee, status: next })
+        Object.assign(employee, updated)
+        ElMessage({ message: `${employee.name} 已设为${next}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+      } catch (e) {
+        ElMessage({ message: e.message || '更新状态失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+      }
+      return
+    }
+    employee.status = next
+    ElMessage({ message: `${employee.name} 已设为${next}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
   }
 }
 
@@ -169,7 +242,19 @@ function exportEmployees() {
   ElMessage({ message: '员工名录已导出', type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
-function refreshLogs() {
+async function refreshLogs() {
+  if (useBackend && supabase) {
+    refreshing.value = true
+    try {
+      logs.value = await fetchSystemLogs(supabase)
+      ElMessage({ message: '系统日志已更新', type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (e) {
+      ElMessage({ message: e.message || '刷新日志失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    } finally {
+      refreshing.value = false
+    }
+    return
+  }
   refreshing.value = true
   window.setTimeout(() => {
     refreshing.value = false
@@ -179,7 +264,8 @@ function refreshLogs() {
 </script>
 
 <template>
-  <div class="employee-management-content">
+  <div class="employee-management-content" v-loading="useBackend && loading">
+    <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="system-page-heading">
       <div><h1>{{ activeTab === 'employees' ? '员工管理' : '系统日志' }}</h1><p>管理您的团队并跟踪系统运行状态。</p></div>
       <div class="system-tabs" role="tablist" aria-label="系统管理视图">
@@ -212,7 +298,7 @@ function refreshLogs() {
         <el-table-column prop="role" label="职位" min-width="105"/>
         <el-table-column prop="store" label="所属门店" min-width="150"/>
         <el-table-column label="状态" min-width="100"><template #default="{ row }"><span class="employee-status" :class="row.status === '在线' || row.status === '值班中' ? 'active' : row.status === '请假' ? 'leave' : 'offline'"><i/>{{ row.status }}</span></template></el-table-column>
-        <el-table-column label="操作" width="62" align="center"><template #default="{ row }"><el-dropdown trigger="click" popper-class="employee-action-menu" @command="handleEmployeeAction($event,row)"><el-button class="employee-more-button" circle aria-label="员工操作"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="edit">编辑资料</el-dropdown-item><el-dropdown-item command="schedule">查看排班</el-dropdown-item><el-dropdown-item command="status">切换在线状态</el-dropdown-item></el-dropdown-menu></template></el-dropdown></template></el-table-column>
+        <el-table-column label="操作" width="72" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><el-dropdown class="table-op-dropdown" trigger="click" popper-class="table-action-menu" @command="handleEmployeeAction($event,row)"><el-button class="table-more-button" circle aria-label="员工操作"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="edit">编辑资料</el-dropdown-item><el-dropdown-item command="schedule">查看排班</el-dropdown-item><el-dropdown-item command="status">切换在线状态</el-dropdown-item></el-dropdown-menu></template></el-dropdown></template></el-table-column>
       </el-table>
       <footer class="system-table-footer"><span>{{ employeeRange }}</span><div><el-pagination v-model:current-page="employeePage" background layout="prev, next" :page-size="pageSize" :total="filteredEmployees.length"/><el-button class="add-employee-button" @click="openAdd"><AppIcon name="plus"/>添加新员工</el-button></div></footer>
     </section>

@@ -1,13 +1,25 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import {
+  createSupplier,
+  deleteSupplier,
+  fetchSuppliers,
+  renewSupplierLicense,
+  updateSupplier,
+} from '../services/suppliersApi'
 
 const props = defineProps({
   query: { type: String, default: '' },
 })
 
-const TOTAL_SUPPLIERS = 124
+const useBackend = isSupabaseConfigured()
+const loading = ref(false)
+const loadError = ref('')
+const saving = ref(false)
+
 const pageSize = 4
 const STATUS_TABS = ['全部', '激活', '停用']
 const CATEGORY_OPTIONS = ['乳制品/有机奶', '新鲜蔬菜/菌菇', '时令水果', '调味品/半成品', '粮油/干货', '冰鲜水产', '茶饮/茶底', '肉类/禽类', '烘焙原料', '冷冻食品']
@@ -38,7 +50,7 @@ const seedSuppliers = [
   licenseNo, licenseExpiry: dateFromNow(licenseDays),
 }))
 
-const suppliers = ref(seedSuppliers)
+const suppliers = ref(useBackend ? [] : seedSuppliers)
 const statusFilter = ref('全部')
 const supplierPage = ref(1)
 
@@ -95,23 +107,45 @@ function openLicense() {
 }
 
 // 续期一年（自到期日或今日中较晚者起算）
-function renewLicense(supplier) {
-  const base = daysUntil(supplier.licenseExpiry) < 0 ? new Date() : new Date(supplier.licenseExpiry)
-  base.setHours(0, 0, 0, 0)
-  base.setFullYear(base.getFullYear() + 1)
-  supplier.licenseExpiry = base
-  ElMessage({ message: `「${supplier.name}」资质已续期至 ${formatDate(base)}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+async function renewLicense(supplier) {
+  const base = licenseExpiryAfterRenew(supplier)
+  if (useBackend && supabase) {
+    try {
+      const iso = base.toISOString().slice(0, 10)
+      await renewSupplierLicense(supabase, supplier.id, iso)
+      supplier.licenseExpiry = iso
+      ElMessage({ message: `「${supplier.name}」资质已续期至 ${formatDate(base)}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (e) {
+      ElMessage({ message: e.message || '续期失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    }
+  } else {
+    supplier.licenseExpiry = base
+    ElMessage({ message: `「${supplier.name}」资质已续期至 ${formatDate(base)}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+  }
   if (!licenseAlerts.value.length) licenseVisible.value = false
 }
 
-function renewAllLicenses() {
+async function renewAllLicenses() {
   const targets = [...licenseAlerts.value]
-  targets.forEach(item => {
-    const base = daysUntil(item.licenseExpiry) < 0 ? new Date() : new Date(item.licenseExpiry)
-    base.setHours(0, 0, 0, 0)
-    base.setFullYear(base.getFullYear() + 1)
-    item.licenseExpiry = base
-  })
+  if (useBackend && supabase) {
+    saving.value = true
+    try {
+      for (const item of targets) {
+        const base = licenseExpiryAfterRenew(item)
+        const iso = base.toISOString().slice(0, 10)
+        await renewSupplierLicense(supabase, item.id, iso)
+        item.licenseExpiry = iso
+      }
+      licenseVisible.value = false
+      ElMessage({ message: `已为 ${targets.length} 家供应商完成资质续期`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (e) {
+      ElMessage({ message: e.message || '批量续期失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+  targets.forEach(item => { item.licenseExpiry = licenseExpiryAfterRenew(item) })
   licenseVisible.value = false
   ElMessage({ message: `已为 ${targets.length} 家供应商完成资质续期`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
@@ -133,7 +167,8 @@ const filteredSuppliers = computed(() => {
 
 const hasFilter = computed(() => statusFilter.value !== '全部' || Boolean(props.query.trim()))
 const pageSuppliers = computed(() => filteredSuppliers.value.slice((supplierPage.value - 1) * pageSize, supplierPage.value * pageSize))
-const totalLabel = computed(() => (hasFilter.value ? filteredSuppliers.value.length : TOTAL_SUPPLIERS).toLocaleString('en-US'))
+const totalLabel = computed(() => (hasFilter.value ? filteredSuppliers.value.length : suppliers.value.length).toLocaleString('en-US'))
+const supplierTotalDisplay = computed(() => suppliers.value.length || (useBackend ? 0 : 124))
 const supplierRange = computed(() => {
   const total = filteredSuppliers.value.length
   if (!total) return '没有符合条件的供应商'
@@ -144,20 +179,69 @@ const supplierRange = computed(() => {
 
 watch([statusFilter, () => props.query], () => { supplierPage.value = 1 })
 
+async function loadSuppliers() {
+  if (!useBackend || !supabase) return
+  loading.value = true
+  loadError.value = ''
+  try {
+    suppliers.value = await fetchSuppliers(supabase)
+  } catch (e) {
+    loadError.value = e.message || '加载供应商失败'
+    ElMessage({ message: loadError.value, type: 'error', customClass: 'light-bites-message', duration: 3200 })
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadSuppliers)
+
+function licenseExpiryAfterRenew(supplier) {
+  const base = daysUntil(supplier.licenseExpiry) < 0 ? new Date() : new Date(supplier.licenseExpiry)
+  base.setHours(0, 0, 0, 0)
+  base.setFullYear(base.getFullYear() + 1)
+  return base
+}
+
 function openAdd() {
   Object.assign(addForm, { name: '', address: '', category: '乳制品/有机奶', contact: '', phone: '', status: '激活' })
   addVisible.value = true
 }
 
-function saveSupplier() {
+async function saveSupplier() {
   if (!addForm.name.trim() || !addForm.contact.trim() || !addForm.phone.trim()) {
     ElMessage({ message: '请填写供应商名称、联系人和电话', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
     return
   }
-  suppliers.value.unshift({ id: Date.now(), ...addForm, name: addForm.name.trim(), contact: addForm.contact.trim(), phone: addForm.phone.trim(), address: addForm.address.trim() || '待补充', score: 'A', fulfillment: 100, licenseNo: `SP-NEW-${String(Date.now()).slice(-4)}`, licenseExpiry: dateFromNow(365) })
+  const draft = {
+    ...addForm,
+    name: addForm.name.trim(),
+    contact: addForm.contact.trim(),
+    phone: addForm.phone.trim(),
+    address: addForm.address.trim() || '待补充',
+    score: 'A',
+    fulfillment: 100,
+    licenseNo: `SP-NEW-${String(Date.now()).slice(-4)}`,
+    licenseExpiry: dateFromNow(365),
+  }
+  if (useBackend && supabase) {
+    saving.value = true
+    try {
+      const created = await createSupplier(supabase, draft)
+      suppliers.value.unshift(created)
+      supplierPage.value = 1
+      addVisible.value = false
+      ElMessage({ message: `供应商「${created.name}」已新增`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (e) {
+      ElMessage({ message: e.message || '新增供应商失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+  suppliers.value.unshift({ id: Date.now(), ...draft })
   supplierPage.value = 1
   addVisible.value = false
-  ElMessage({ message: `供应商「${addForm.name.trim()}」已新增`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+  ElMessage({ message: `供应商「${draft.name}」已新增`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
 function openDetail(supplier) {
@@ -165,13 +249,34 @@ function openDetail(supplier) {
   detailVisible.value = true
 }
 
-function handleAction(command, supplier) {
+async function handleAction(command, supplier) {
   if (command === 'edit') ElMessage({ message: `正在编辑「${supplier.name}」`, customClass: 'light-bites-message', duration: 2200 })
   if (command === 'toggle') {
-    supplier.status = supplier.status === '激活' ? '停用' : '激活'
-    ElMessage({ message: `「${supplier.name}」已${supplier.status}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    const next = supplier.status === '激活' ? '停用' : '激活'
+    if (useBackend && supabase) {
+      try {
+        await updateSupplier(supabase, supplier.id, { ...supplier, status: next })
+        supplier.status = next
+        ElMessage({ message: `「${supplier.name}」已${next}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+      } catch (e) {
+        ElMessage({ message: e.message || '更新失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+      }
+      return
+    }
+    supplier.status = next
+    ElMessage({ message: `「${supplier.name}」已${next}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
   }
   if (command === 'delete') {
+    if (useBackend && supabase) {
+      try {
+        await deleteSupplier(supabase, supplier.id)
+        suppliers.value = suppliers.value.filter(row => row.id !== supplier.id)
+        ElMessage({ message: `供应商「${supplier.name}」已删除`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+      } catch (e) {
+        ElMessage({ message: e.message || '删除失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+      }
+      return
+    }
     suppliers.value = suppliers.value.filter(row => row.id !== supplier.id)
     ElMessage({ message: `供应商「${supplier.name}」已删除`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
   }
@@ -191,7 +296,8 @@ function exportSuppliers() {
 </script>
 
 <template>
-  <div class="supplier-content">
+  <div class="supplier-content" v-loading="useBackend && loading">
+    <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="supplier-toolbar">
       <div class="supplier-status-filter">
         <span>状态筛选：</span>
@@ -207,7 +313,7 @@ function exportSuppliers() {
 
     <section class="supplier-metrics">
       <article class="supplier-total-card">
-        <div><p>合作供应商总数</p><div class="supplier-total-figure"><strong>{{ TOTAL_SUPPLIERS }}</strong><span>家供应商</span></div></div>
+        <div><p>合作供应商总数</p><div class="supplier-total-figure"><strong>{{ supplierTotalDisplay }}</strong><span>家供应商</span></div></div>
         <div class="supplier-total-stats">
           <div><small>本月新增</small><strong>+12</strong></div>
           <div><small>异常待处理</small><strong>3</strong></div>
@@ -226,7 +332,7 @@ function exportSuppliers() {
         <el-table-column label="供应品类" min-width="140"><template #default="{ row }"><span class="supplier-category">{{ row.category }}</span></template></el-table-column>
         <el-table-column label="联系人 / 电话" min-width="150"><template #default="{ row }"><div class="supplier-contact"><strong>{{ row.contact }}</strong><small>{{ row.phone }}</small></div></template></el-table-column>
         <el-table-column label="合作状态" min-width="110"><template #default="{ row }"><span class="supplier-status" :class="row.status === '激活' ? 'active' : 'inactive'"><i />{{ row.status }}</span></template></el-table-column>
-        <el-table-column label="操作" width="120" align="right"><template #default="{ row }"><div class="supplier-actions"><button type="button" class="supplier-action-link" @click="openDetail(row)">查看</button><el-dropdown trigger="click" popper-class="inv-action-menu" @command="handleAction($event, row)"><el-button class="inv-more-button" circle aria-label="更多操作"><AppIcon name="more" /></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="edit">编辑资料</el-dropdown-item><el-dropdown-item command="toggle">{{ row.status === '激活' ? '停用合作' : '启用合作' }}</el-dropdown-item><el-dropdown-item command="delete" divided class="danger-text">删除供应商</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></template></el-table-column>
+        <el-table-column label="操作" width="120" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><div class="table-row-actions"><button type="button" class="table-action-link" @click="openDetail(row)">查看</button><el-dropdown class="table-op-dropdown" trigger="click" popper-class="table-action-menu" @command="handleAction($event, row)"><el-button class="table-more-button" circle aria-label="更多操作"><AppIcon name="more" /></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="edit">编辑资料</el-dropdown-item><el-dropdown-item command="toggle">{{ row.status === '激活' ? '停用合作' : '启用合作' }}</el-dropdown-item><el-dropdown-item command="delete" divided class="danger-text">删除供应商</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></template></el-table-column>
       </el-table>
       <footer class="member-table-footer"><span>{{ supplierRange }}</span><el-pagination v-model:current-page="supplierPage" background layout="prev, pager, next" :page-size="pageSize" :total="filteredSuppliers.length" :pager-count="5" /></footer>
     </div>

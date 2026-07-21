@@ -16,6 +16,10 @@ const listRange = ref(defaultOrderListRange())
 export function useOrders() {
   const enabled = isSupabaseConfigured()
 
+  async function setListRange(from, to) {
+    listRange.value = { from, to }
+  }
+
   async function loadOrders(options = {}) {
     if (!enabled || !supabase) {
       orders.value = orderStore.orders
@@ -62,6 +66,7 @@ export function useOrders() {
     error,
     listRange,
     loadOrders,
+    setListRange,
     createOrder,
     saveOrderState,
   }

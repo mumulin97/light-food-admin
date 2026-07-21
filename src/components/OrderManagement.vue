@@ -3,8 +3,11 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import { useOrders } from '../composables/useOrders'
-import { formatRangeLabel } from '../services/ordersApi'
-import { orderStore, setOrderStatus, STATUS_META, ALL_STATUSES } from '../stores/orders'
+import { supabase } from '../lib/supabase'
+import { syncInventoryStore, updateIngredientStock } from '../services/inventoryApi'
+import { syncMemberStore, updateMember } from '../services/membersApi'
+import { inventoryStore } from '../stores/inventory'
+import { orderStore, setOrderStatus, STATUS_META, ALL_STATUSES, formatOrderItems } from '../stores/orders'
 import { findMember } from '../stores/members'
 
 const props = defineProps({
@@ -15,7 +18,29 @@ const TOTAL_ORDERS = 248
 const pageSize = 6
 const FILTER_STATUSES = ['全部', ...ALL_STATUSES]
 
-const { enabled: useBackend, orders, loading, error: ordersLoadError, loadOrders, saveOrderState, listRange } = useOrders()
+const { enabled: useBackend, orders, loading, error: ordersLoadError, loadOrders, saveOrderState, listRange, setListRange } = useOrders()
+
+const draftFrom = ref('')
+const draftTo = ref('')
+
+const draftDateRange = computed({
+  get() {
+    if (!draftFrom.value || !draftTo.value) return null
+    return [draftFrom.value, draftTo.value]
+  },
+  set(val) {
+    if (Array.isArray(val) && val.length === 2) {
+      draftFrom.value = val[0]
+      draftTo.value = val[1]
+    }
+  },
+})
+
+function syncDraftRangeFromList() {
+  const { from, to } = listRange.value
+  draftFrom.value = from
+  draftTo.value = to
+}
 
 const orderPage = ref(1)
 const refreshing = ref(false)
@@ -24,8 +49,6 @@ const draftOrderId = ref('')
 const draftStatus = ref('全部')
 const appliedOrderId = ref('')
 const appliedStatus = ref('全部')
-
-const dateRangeLabel = computed(() => formatRangeLabel(listRange.value.from, listRange.value.to))
 
 const detailVisible = ref(false)
 const detailOrder = ref(null)
@@ -57,10 +80,15 @@ const orderRange = computed(() => {
 watch([() => props.query, appliedOrderId, appliedStatus], () => { orderPage.value = 1 })
 
 onMounted(() => {
+  syncDraftRangeFromList()
   if (useBackend) {
     appliedStatus.value = '全部'
     draftStatus.value = '全部'
-    loadOrders().catch(() => {})
+    Promise.all([
+      loadOrders().catch(() => {}),
+      supabase ? syncInventoryStore(supabase) : Promise.resolve(),
+      supabase ? syncMemberStore(supabase) : Promise.resolve(),
+    ])
   }
 })
 
@@ -76,16 +104,48 @@ function rowClassName({ row }) {
   return isTerminal(row.status) ? 'is-terminal' : ''
 }
 
-function applyFilters() {
+async function applyFilters() {
+  if (!draftFrom.value || !draftTo.value) {
+    ElMessage({ message: '请选择完整的日期范围', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
+    return
+  }
+  if (draftFrom.value > draftTo.value) {
+    ElMessage({ message: '开始日期不能晚于结束日期', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
+    return
+  }
   appliedOrderId.value = draftOrderId.value
   appliedStatus.value = draftStatus.value
+  orderPage.value = 1
+  if (useBackend) {
+    try {
+      await setListRange(draftFrom.value, draftTo.value)
+      await loadOrders()
+    } catch (e) {
+      ElMessage({ message: e.message || '按日期加载订单失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+      return
+    }
+  }
   ElMessage({ message: '筛选条件已应用', type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
 async function changeStatus(order, status) {
   try {
     const { consumed, accrued } = setOrderStatus(order, status)
-    if (useBackend) await saveOrderState(order)
+    if (useBackend && supabase) {
+      await saveOrderState(order)
+      for (const item of consumed) {
+        const ing = inventoryStore.ingredients.find(row => row.name === item.name)
+        if (ing) await updateIngredientStock(supabase, ing.id, ing.stock)
+      }
+      if (accrued?.member) {
+        await updateMember(supabase, accrued.member.id, {
+          points: accrued.member.points,
+          balance: accrued.member.balance,
+          spent: accrued.member.spent,
+          tier: accrued.member.tier,
+        })
+      }
+    }
     const parts = [`订单 ${order.id} 已更新为「${status}」`]
     if (consumed.length) parts.push(`已扣减原料：${consumed.map(item => `${item.name} ${item.amount}${item.unit}`).join('、')}`)
     if (accrued) {
@@ -154,20 +214,38 @@ function exportOrders() {
     </section>
 
     <section class="order-filters">
-      <label class="order-filter-field"><span>订单编号</span><el-input v-model="draftOrderId" placeholder="如 #QS-90210" clearable @keyup.enter="applyFilters" /></label>
-      <div class="order-filter-field"><span>日期范围</span><div class="order-date-field"><AppIcon name="calendar" />{{ dateRangeLabel }}</div></div>
-      <label class="order-filter-field"><span>状态</span><el-select v-model="draftStatus"><el-option v-for="item in FILTER_STATUSES" :key="item" :label="item" :value="item" /></el-select></label>
+      <label class="order-filter-field order-filter-field--id"><span>订单编号</span><el-input v-model="draftOrderId" placeholder="如 #QS-90210" clearable @keyup.enter="applyFilters" /></label>
+      <label class="order-filter-field order-filter-field--range">
+        <span>日期范围</span>
+        <el-date-picker
+          v-model="draftDateRange"
+          class="order-date-range-picker"
+          popper-class="order-date-popper"
+          type="daterange"
+          size="large"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          format="YYYY年MM月DD日"
+          value-format="YYYY-MM-DD"
+          :editable="true"
+          :clearable="false"
+          :teleported="true"
+        />
+      </label>
+      <label class="order-filter-field order-filter-field--status"><span>状态</span><el-select v-model="draftStatus"><el-option v-for="item in FILTER_STATUSES" :key="item" :label="item" :value="item" /></el-select></label>
       <el-button class="order-apply-button" @click="applyFilters">应用筛选</el-button>
     </section>
 
     <div class="member-table-card">
       <el-table :data="pageOrders" class="member-table order-table" table-layout="fixed" :row-class-name="rowClassName" empty-text="没有符合条件的订单">
         <el-table-column prop="id" label="订单号" min-width="120"><template #default="{ row }"><span class="order-id">{{ row.id }}</span></template></el-table-column>
-        <el-table-column label="客户" min-width="130"><template #default="{ row }"><div class="order-customer"><span class="order-avatar" :style="{ background: row.avatarColor }">{{ row.customer.charAt(0) }}</span><span>{{ row.customer }}</span></div></template></el-table-column>
-        <el-table-column label="金额" min-width="96"><template #default="{ row }"><strong class="order-amount">{{ formatMoney(row.amount) }}</strong></template></el-table-column>
+        <el-table-column label="客户" min-width="120"><template #default="{ row }"><div class="order-customer"><span class="order-avatar" :style="{ background: row.avatarColor }">{{ row.customer.charAt(0) }}</span><span>{{ row.customer }}</span></div></template></el-table-column>
+        <el-table-column label="菜品" min-width="168" show-overflow-tooltip><template #default="{ row }"><span class="order-items-text">{{ formatOrderItems(row.items || []) }}</span></template></el-table-column>
+        <el-table-column label="金额" min-width="88"><template #default="{ row }"><strong class="order-amount">{{ formatMoney(row.amount) }}</strong></template></el-table-column>
         <el-table-column label="状态" min-width="110"><template #default="{ row }"><span class="order-status" :class="STATUS_META[row.status].class"><i v-if="STATUS_META[row.status].dot" />{{ row.status }}</span></template></el-table-column>
         <el-table-column prop="time" label="下单时间" min-width="120"><template #default="{ row }"><span class="order-time">{{ row.time }}</span></template></el-table-column>
-        <el-table-column label="操作" width="180" align="right"><template #default="{ row }"><div class="order-actions"><button type="button" class="order-detail-link" @click="openDetail(row)">详情</button><el-dropdown v-if="!isTerminal(row.status)" trigger="click" popper-class="order-status-menu" @command="changeStatus(row, $event)"><el-button class="order-status-button">修改状态</el-button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="s in ALL_STATUSES.filter(item => item !== row.status)" :key="s" :command="s">{{ s }}</el-dropdown-item></el-dropdown-menu></template></el-dropdown><el-button v-else class="order-status-button" disabled>修改状态</el-button></div></template></el-table-column>
+        <el-table-column label="操作" width="168" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><div class="table-row-actions"><button type="button" class="table-action-link" @click="openDetail(row)">详情</button><el-dropdown v-if="!isTerminal(row.status)" class="table-op-dropdown" trigger="click" popper-class="table-action-menu" @command="changeStatus(row, $event)"><button type="button" class="table-action-link">修改状态</button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="s in ALL_STATUSES.filter(item => item !== row.status)" :key="s" :command="s">{{ s }}</el-dropdown-item></el-dropdown-menu></template></el-dropdown><button v-else type="button" class="table-action-link" disabled>修改状态</button></div></template></el-table-column>
       </el-table>
       <footer class="member-table-footer"><span>{{ orderRange }}</span><el-pagination v-model:current-page="orderPage" background layout="prev, pager, next" :page-size="pageSize" :total="filteredOrders.length" :pager-count="5" /></footer>
     </div>

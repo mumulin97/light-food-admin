@@ -135,9 +135,14 @@ export async function persistOrderState(client, order) {
 }
 
 export function defaultOrderListRange() {
+  return rangeFromPresetDays(30)
+}
+
+/** 含首尾：days=30 表示从今天起往前共 30 个自然日 */
+export function rangeFromPresetDays(days) {
   const to = localIsoDate()
   const fromDate = new Date()
-  fromDate.setDate(fromDate.getDate() - 29)
+  fromDate.setDate(fromDate.getDate() - (Math.max(1, days) - 1))
   const from = localIsoDate(fromDate)
   return { from, to }
 }

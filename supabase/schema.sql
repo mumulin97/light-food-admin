@@ -15,12 +15,20 @@ create table if not exists public.stores (
   created_at timestamptz not null default now()
 );
 
--- Products (在售单品)
+-- Products (菜单 / 产品目录)
 create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
   price numeric(10, 2) not null check (price >= 0),
   is_active boolean not null default true,
+  tag text not null default '',
+  category text not null default '沙拉类' check (category in ('沙拉类', '轻食碗', '营养昔', '生酮零食')),
+  stock numeric(12, 2) not null default 0,
+  unit text not null default '份',
+  calories int not null default 0,
+  protein numeric(8, 2) not null default 0,
+  carbs numeric(8, 2) not null default 0,
+  emoji text not null default '🥗',
   created_at timestamptz not null default now()
 );
 
@@ -105,13 +113,13 @@ insert into public.stores (name, address, manager, phone, status, region) values
 on conflict (name) do nothing;
 
 -- Seed products
-insert into public.products (name, price) values
-  ('抹茶能量碗', 45),
-  ('牛油果高纤卷', 36),
-  ('藜麦田园沙拉', 34),
-  ('冷萃燕麦杯', 28),
-  ('浆果排毒思慕雪', 22),
-  ('轻盈双人套餐', 68)
+insert into public.products (name, price, is_active, tag, category, stock, unit, calories, protein, carbs, emoji) values
+  ('抹茶能量碗', 45, true, '招牌', '轻食碗', 32, '份', 450, 28, 42, '🥣'),
+  ('牛油果高纤卷', 36, true, '高人气', '轻食碗', 28, '份', 360, 22, 36, '🥑'),
+  ('藜麦田园沙拉', 34, true, '低卡', '沙拉类', 24, '份', 340, 18, 28, '🥗'),
+  ('冷萃燕麦杯', 28, true, '清爽', '营养昔', 40, '杯', 280, 12, 32, '🥤'),
+  ('浆果排毒思慕雪', 22, true, '抗氧化', '营养昔', 18, '瓶', 220, 8, 40, '🫐'),
+  ('轻盈双人套餐', 68, true, '套餐优惠', '轻食碗', 15, '份', 520, 35, 48, '🍱')
 on conflict (name) do nothing;
 
 -- Seed ingredients (3 below threshold for dashboard alert card)

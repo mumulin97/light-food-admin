@@ -16,6 +16,7 @@ import MarketingManagement from './components/MarketingManagement.vue'
 import OrderManagement from './components/OrderManagement.vue'
 import InventoryManagement from './components/InventoryManagement.vue'
 import SupplierManagement from './components/SupplierManagement.vue'
+import AiAssistant from './components/AiAssistant.vue'
 
 const navItems = [
   ['控制台', 'grid'], ['门店管理', 'store'], ['产品目录', 'box'], ['原料管理', 'leaf'],
@@ -202,6 +203,35 @@ const currentRanking = computed(() =>
 )
 const consoleOrders = computed(() => (useBackend ? dashboard.dayOrders.value : orderStore.orders))
 const latestOrders = computed(() => consoleOrders.value.slice(0, 3))
+const aiBusinessContext = computed(() => ({
+  dataSource: useBackend ? 'Supabase' : '本地演示数据',
+  store: selectedStore.value,
+  selectedDate: selectedDateLabel.value,
+  rangeDays: currentRange.value,
+  metrics: {
+    orderCount: currentMetrics.value.orders,
+    revenue: currentMetrics.value.revenue,
+    activeProducts: currentMetrics.value.products,
+    inventoryAlerts: currentMetrics.value.alerts,
+  },
+  revenueTrend: chartLabels.value.map((label, index) => ({
+    label,
+    revenue: Number(chartValues.value[index] || 0),
+  })),
+  topProducts: currentRanking.value.map(([name, value]) => ({ name, value })),
+  inventoryRisks: useBackend
+    ? dashboard.inventoryRisks.value
+    : Number(currentMetrics.value.alerts) > 0
+      ? [{ name: '演示库存预警', count: Number(currentMetrics.value.alerts) }]
+      : [],
+  latestOrders: latestOrders.value.map(order => ({
+    id: order.id,
+    customer: order.customer,
+    status: order.status,
+    amount: Number(order.amount),
+    items: order.items,
+  })),
+}))
 const filteredOrders = computed(() =>
   orderFilter.value === '全部'
     ? consoleOrders.value
@@ -375,6 +405,7 @@ onBeforeUnmount(() => {
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></symbol>
     <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6.1 8a7 7 0 0 1 11.5-2.2L20 8M4 16l2.4 2.2A7 7 0 0 0 18 16"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8zM5 3l.7 1.8L7.5 5.5l-1.8.7L5 8l-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
   </svg>
 
   <Login v-if="!currentUser" @login="handleLogin" />
@@ -529,5 +560,6 @@ onBeforeUnmount(() => {
     <div class="drawer-filter"><el-button v-for="filter in ['全部','待处理','制作中','待取餐','已完成']" :key="filter" :class="{ active: orderFilter === filter }" @click="orderFilter = filter">{{ filter }}</el-button></div>
     <div class="drawer-orders"><article v-for="order in filteredOrders" :key="order.id" class="drawer-order"><div><strong>{{ order.id }} · {{ order.customer }}</strong><small>{{ formatOrderItems(order.items) }}</small><small><span class="status" :class="dashboardStatusClass(order.status)">{{ order.status }}</span></small></div><span class="amount">{{ formatOrderMoney(order.amount) }}</span></article></div>
   </el-drawer>
+  <AiAssistant :context="aiBusinessContext" :user-name="currentUser?.name" />
   </template>
 </template>

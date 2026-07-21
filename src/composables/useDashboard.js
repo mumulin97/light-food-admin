@@ -5,7 +5,7 @@ import {
   dateMeta,
   fetchActiveProductCount,
   fetchDayMetrics,
-  fetchInventoryAlertCount,
+  fetchInventoryRisks,
   fetchOrdersForDay,
   fetchProductPrices,
   fetchProductRanking,
@@ -35,6 +35,7 @@ export function useDashboard() {
   const ranking = ref([])
   const dayOrders = ref([])
   const productPrices = ref({})
+  const inventoryRisks = ref([])
 
   const selectedDateLabel = computed(() => formatDisplayDate(selectedDateIso.value))
 
@@ -46,9 +47,9 @@ export function useDashboard() {
     loading.value = true
     error.value = ''
     try {
-      const [productCount, alertCount, orders, series, rank, prices, dates] = await Promise.all([
+      const [productCount, risks, orders, series, rank, prices, dates] = await Promise.all([
         fetchActiveProductCount(supabase),
-        fetchInventoryAlertCount(supabase),
+        fetchInventoryRisks(supabase),
         fetchOrdersForDay(supabase, storeId, selectedDateIso.value),
         fetchRevenueSeries(supabase, storeId, currentRange.value),
         fetchProductRanking(supabase, storeId, selectedDateIso.value, rankingMode.value),
@@ -57,6 +58,7 @@ export function useDashboard() {
       ])
 
       dayOrders.value = orders
+      inventoryRisks.value = risks
       chartValues.value = series
       ranking.value = rank
       productPrices.value = prices
@@ -72,7 +74,7 @@ export function useDashboard() {
       if (!dates.includes(selectedDateIso.value) && dates[0]) {
         selectedDateIso.value = dates[0]
       }
-      metrics.value = await fetchDayMetrics(supabase, storeId, selectedDateIso.value, productCount, alertCount)
+      metrics.value = await fetchDayMetrics(supabase, storeId, selectedDateIso.value, productCount, risks.length)
     } catch (e) {
       error.value = e.message || '加载控制台数据失败'
       console.error(e)
@@ -133,6 +135,7 @@ export function useDashboard() {
     ranking,
     dayOrders,
     productPrices,
+    inventoryRisks,
     initStores,
     refresh,
     createOrder,

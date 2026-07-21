@@ -39,9 +39,20 @@ export async function fetchActiveProductCount(client) {
 }
 
 export async function fetchInventoryAlertCount(client) {
-  const { data, error } = await client.from('ingredients').select('stock, threshold')
+  return (await fetchInventoryRisks(client)).length
+}
+
+export async function fetchInventoryRisks(client) {
+  const { data, error } = await client.from('ingredients').select('name, stock, threshold').order('name')
   if (error) throw error
-  return (data || []).filter(row => Number(row.stock) < Number(row.threshold)).length
+  return (data || [])
+    .filter(row => Number(row.stock) < Number(row.threshold))
+    .map(row => ({
+      name: row.name,
+      stock: Number(row.stock),
+      threshold: Number(row.threshold),
+      shortage: Number(row.threshold) - Number(row.stock),
+    }))
 }
 
 export async function fetchDayMetrics(client, storeId, isoDate, productCount, alertCount) {

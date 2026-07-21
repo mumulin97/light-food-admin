@@ -55,6 +55,26 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 2. 在 Netlify **Environment variables** 配置 `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`。
 3. Supabase **Authentication → URL Configuration** 添加 Netlify 站点 URL。
 
+### Coze AI 经营助手
+
+智能体通过 Netlify Function 调用，Coze PAT 只保存在 Netlify 服务端环境变量中：
+
+```env
+COZE_API_TOKEN=pat_xxx
+COZE_BOT_ID=7664841515671715881
+COZE_API_BASE=https://api.coze.cn
+```
+
+不要给这些变量添加 `VITE_` 前缀，否则会被打包进浏览器。智能体必须先在 Coze 发布到 API，前端通过 `/.netlify/functions/ai-assistant` 调用。
+
+本地联调 AI 时，先将 `.env.example` 复制为 `.env` 并填写变量，然后运行：
+
+```bash
+pnpm dev
+```
+
+浏览器访问 `http://127.0.0.1:4173`。Vite 的本地中间件会复用同一份 Function 代码；部署后则由 Netlify Functions 运行。
+
 生产构建：
 
 ```bash

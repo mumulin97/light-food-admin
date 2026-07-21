@@ -1,10 +1,12 @@
 import { computed, ref } from 'vue'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import {
+  computeAlertTrend,
+  computeTrendPercent,
   createDashboardOrder,
   dateMeta,
   fetchActiveProductCount,
-  fetchDayMetrics,
+  fetchDayOrderStats,
   fetchInventoryRisks,
   fetchOrdersForDay,
   fetchProductPrices,
@@ -14,9 +16,22 @@ import {
   formatDisplayDate,
   listRecentDates,
   localIsoDate,
+  previousIsoDate,
 } from '../services/dashboard'
 
 const defaultMetrics = { orders: '—', revenue: '—', products: '—', alerts: '—' }
+const defaultTrend = { label: '—', tone: 'stable' }
+const defaultTrends = {
+  orders: { ...defaultTrend },
+  revenue: { ...defaultTrend },
+  products: { ...defaultTrend },
+  alerts: { ...defaultTrend },
+}
+
+/** @type {Record<string, number>} */
+const productCountByDate = {}
+/** @type {Record<string, number>} */
+const alertCountByDate = {}
 
 const enabled = isSupabaseConfigured()
 const loading = ref(false)
@@ -29,6 +44,7 @@ const dateOptions = ref([])
 const currentRange = ref(7)
 const rankingMode = ref('volume')
 const metrics = ref({ ...defaultMetrics })
+const metricTrends = ref({ ...defaultTrends })
 const chartValues = ref([])
 const ranking = ref([])
 const dayOrders = ref([])
@@ -75,7 +91,7 @@ async function refresh() {
       fetchActiveProductCount(supabase),
       fetchInventoryRisks(supabase),
       fetchOrdersForDay(supabase, storeId, selectedDateIso.value),
-      fetchRevenueSeries(supabase, storeId, currentRange.value),
+      fetchRevenueSeries(supabase, storeId, currentRange.value, selectedDateIso.value),
       fetchProductRanking(supabase, storeId, selectedDateIso.value, rankingMode.value),
       fetchProductPrices(supabase),
       listRecentDates(supabase, storeId),
@@ -98,7 +114,31 @@ async function refresh() {
     if (!dates.includes(selectedDateIso.value) && dates[0]) {
       selectedDateIso.value = dates[0]
     }
-    metrics.value = await fetchDayMetrics(supabase, storeId, selectedDateIso.value, productCount, risks.length)
+
+    const iso = selectedDateIso.value
+    const active = orders.filter(o => o.status !== '已取消')
+    const revenue = active.reduce((sum, o) => sum + o.amount, 0)
+    const alertCount = risks.length
+    const prevIso = previousIsoDate(iso)
+    const prevStats = await fetchDayOrderStats(supabase, storeId, prevIso)
+
+    productCountByDate[iso] = productCount
+    alertCountByDate[iso] = alertCount
+    const prevProductCount = productCountByDate[prevIso] ?? productCount
+    const prevAlertCount = alertCountByDate[prevIso] ?? alertCount
+
+    metrics.value = {
+      orders: String(active.length),
+      revenue: `¥${revenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
+      products: String(productCount),
+      alerts: String(alertCount),
+    }
+    metricTrends.value = {
+      orders: computeTrendPercent(active.length, prevStats.orderCount),
+      revenue: computeTrendPercent(revenue, prevStats.revenue),
+      products: computeTrendPercent(productCount, prevProductCount),
+      alerts: computeAlertTrend(alertCount, prevAlertCount),
+    }
   } catch (e) {
     error.value = e.message || '加载控制台数据失败'
     console.error(e)
@@ -142,6 +182,7 @@ export function useDashboard() {
     currentRange,
     rankingMode,
     metrics,
+    metricTrends,
     chartValues,
     ranking,
     dayOrders,

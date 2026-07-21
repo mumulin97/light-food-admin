@@ -16,13 +16,40 @@ const props = defineProps({
 const chartEl = ref(null)
 let chart
 let resizeObserver
-let chartTransition
+let hasRendered = false
 
-function buildOption() {
-  const max = Math.ceil(Math.max(...props.values) / 1000) * 1000
+function formatAxisY(value) {
+  if (value >= 10000) {
+    const wan = value / 10000
+    return Number.isInteger(wan) ? `${wan}万` : `${wan.toFixed(1)}万`
+  }
+  if (value >= 1000) return `${Math.round(value / 100) / 10}k`
+  return String(value)
+}
+
+function seriesValues() {
+  return props.values.length ? props.values.map(value => Number(value) || 0) : [0]
+}
+
+function yAxisMax(values) {
+  const peak = Math.max(...values, 0)
+  return peak <= 0 ? 1000 : Math.ceil(peak / 1000) * 1000
+}
+
+function buildFullOption({ animateUpdate = false } = {}) {
+  const data = seriesValues()
+  const max = yAxisMax(data)
+  const enableMotion = props.animated
+  const updateDuration = enableMotion && animateUpdate ? 720 : 0
+  const initialDuration = enableMotion && !hasRendered ? 720 : 0
+
   return {
-    animation: false,
-    grid: { left: 18, right: 12, top: 22, bottom: 42, containLabel: false },
+    animation: enableMotion,
+    animationDuration: initialDuration,
+    animationEasing: 'cubicOut',
+    animationDurationUpdate: updateDuration,
+    animationEasingUpdate: 'cubicOut',
+    grid: { left: 6, right: 14, top: 18, bottom: 40, containLabel: true },
     tooltip: {
       trigger: 'axis',
       confine: true,
@@ -47,27 +74,36 @@ function buildOption() {
         fontSize: 12,
         fontWeight: 650,
         interval: props.labels.length === 7 ? 0 : props.labels.length === 14 ? 1 : 4,
-        margin: 18,
+        margin: 16,
       },
     },
     yAxis: {
       type: 'value',
       min: 0,
       max,
-      splitNumber: 3,
-      axisLabel: { show: false },
+      splitNumber: 4,
+      axisLabel: {
+        show: true,
+        color: '#7a8a82',
+        fontSize: 11,
+        fontWeight: 600,
+        formatter: value => formatAxisY(value),
+      },
       axisLine: { show: false },
       axisTick: { show: false },
       splitLine: { lineStyle: { color: '#e8eeea', width: 1 } },
     },
     series: [{
+      id: 'revenue-line',
       name: '营业收入',
       type: 'line',
-      data: props.values,
+      data,
       smooth: false,
       showSymbol: true,
       symbol: 'circle',
       symbolSize: 8,
+      universalTransition: enableMotion,
+      animationDurationUpdate: updateDuration,
       lineStyle: { color: '#087824', width: 4, cap: 'round', join: 'round', shadowColor: 'rgba(0,75,20,.18)', shadowBlur: 3 },
       itemStyle: { color: '#fff', borderColor: '#087824', borderWidth: 2 },
       emphasis: { scale: 1.5, itemStyle: { color: '#4caf50', borderColor: '#087824' } },
@@ -81,40 +117,51 @@ function buildOption() {
   }
 }
 
-function render() {
-  if (!chart) return
-  chart.setOption(buildOption(), { notMerge: true })
+function buildUpdatePatch() {
+  const data = seriesValues()
+  const max = yAxisMax(data)
+  const updateDuration = props.animated ? 720 : 0
+
+  return {
+    animation: props.animated,
+    animationDurationUpdate: updateDuration,
+    animationEasingUpdate: 'cubicOut',
+    xAxis: { data: props.labels },
+    yAxis: { max },
+    series: [{
+      id: 'revenue-line',
+      type: 'line',
+      data,
+      universalTransition: props.animated,
+      animationDurationUpdate: updateDuration,
+    }],
+  }
 }
 
-function playTransition() {
-  chartTransition?.cancel()
-  chartTransition = undefined
+function renderInitial() {
+  if (!chart) return
+  chart.setOption(buildFullOption({ animateUpdate: false }), { notMerge: true, lazyUpdate: false })
+  hasRendered = true
+}
 
-  if (!props.animated || typeof chartEl.value?.animate !== 'function') return
-
-  chartTransition = chartEl.value.animate([
-    { opacity: 0.24, transform: 'translateY(8px) scaleY(.965)' },
-    { opacity: 1, transform: 'translateY(0) scaleY(1)' },
-  ], {
-    duration: 420,
-    easing: 'cubic-bezier(.22, 1, .36, 1)',
-  })
-
-  chartTransition.onfinish = () => {
-    chartTransition = undefined
-  }
+function renderUpdate() {
+  if (!chart) return
+  chart.setOption(buildUpdatePatch(), { notMerge: false, lazyUpdate: false })
 }
 
 function refresh() {
   if (!chart) return
-  render()
-  playTransition()
+  if (!hasRendered) {
+    renderInitial()
+    return
+  }
+  renderUpdate()
 }
 
 onMounted(async () => {
   await nextTick()
   chart = echarts.init(chartEl.value, null, { renderer: 'svg' })
-  render()
+  renderInitial()
   resizeObserver = new ResizeObserver(() => chart?.resize())
   resizeObserver.observe(chartEl.value)
 })
@@ -125,15 +172,12 @@ watch(
   { flush: 'post' },
 )
 
-watch(() => props.animated, enabled => {
-  if (!enabled) {
-    chartTransition?.cancel()
-    chartTransition = undefined
-  }
+watch(() => props.animated, () => {
+  if (!chart) return
+  renderInitial()
 })
 
 onBeforeUnmount(() => {
-  chartTransition?.cancel()
   resizeObserver?.disconnect()
   chart?.dispose()
 })

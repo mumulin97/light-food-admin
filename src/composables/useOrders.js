@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import {
+  computeOrderAmount,
   createOrderInDb,
   defaultOrderListRange,
   fetchOrders,
@@ -10,6 +11,7 @@ import { orderStore, createOrder as createLocalOrder } from '../stores/orders'
 
 const orders = ref([])
 const loading = ref(false)
+const creating = ref(false)
 const error = ref('')
 const listRange = ref(defaultOrderListRange())
 
@@ -44,14 +46,25 @@ export function useOrders() {
   }
 
   async function createOrder(payload) {
-    if (!enabled || !supabase) {
-      const order = createLocalOrder(payload)
-      orders.value = orderStore.orders
-      return order.id
+    if (creating.value) return null
+    creating.value = true
+    error.value = ''
+    try {
+      if (!enabled || !supabase) {
+        const amount = computeOrderAmount(payload.items, payload.priceByProduct, payload.amount)
+        const order = createLocalOrder({ ...payload, amount })
+        orders.value = orderStore.orders
+        return order.id
+      }
+      const id = await createOrderInDb(supabase, payload)
+      await loadOrders()
+      return id
+    } catch (e) {
+      error.value = e.message || '创建订单失败'
+      throw e
+    } finally {
+      creating.value = false
     }
-    const id = await createOrderInDb(supabase, payload)
-    await loadOrders()
-    return id
   }
 
   async function saveOrderState(order) {
@@ -63,6 +76,7 @@ export function useOrders() {
     enabled,
     orders,
     loading,
+    creating,
     error,
     listRange,
     loadOrders,

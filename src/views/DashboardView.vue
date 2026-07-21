@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import AppIcon from '../components/AppIcon.vue'
 import RevenueChart from '../components/RevenueChart.vue'
 import { useDashboard } from '../composables/useDashboard'
+import { computeAlertTrend, computeTrendPercent } from '../services/dashboard'
 import { orderStore, formatMoney as formatOrderMoney, dashboardStatusClass } from '../stores/orders'
 import { isSupabaseConfigured } from '../lib/supabase'
 
@@ -81,6 +82,51 @@ const currentMetrics = computed(() =>
   useBackend ? dashboard.metrics.value : dateData[selectedDateLocal.value],
 )
 
+function parseMetricNumber(field, raw) {
+  if (field === 'revenue') return Number(String(raw).replace(/[¥,]/g, '')) || 0
+  return Number(raw) || 0
+}
+
+function previousMockDateKey(key) {
+  const keys = mockDateOptions.map(option => option.value)
+  const index = keys.indexOf(key)
+  return index >= 0 && index < keys.length - 1 ? keys[index + 1] : null
+}
+
+const currentMetricTrends = computed(() => {
+  if (useBackend) return dashboard.metricTrends.value
+  const key = selectedDateLocal.value
+  const current = dateData[key]
+  const prevKey = previousMockDateKey(key)
+  if (!current || !prevKey) {
+    return {
+      orders: { label: '—', tone: 'stable' },
+      revenue: { label: '—', tone: 'stable' },
+      products: { label: '—', tone: 'stable' },
+      alerts: { label: '—', tone: 'stable' },
+    }
+  }
+  const previous = dateData[prevKey]
+  return {
+    orders: computeTrendPercent(
+      parseMetricNumber('orders', current.orders),
+      parseMetricNumber('orders', previous.orders),
+    ),
+    revenue: computeTrendPercent(
+      parseMetricNumber('revenue', current.revenue),
+      parseMetricNumber('revenue', previous.revenue),
+    ),
+    products: computeTrendPercent(
+      parseMetricNumber('products', current.products),
+      parseMetricNumber('products', previous.products),
+    ),
+    alerts: computeAlertTrend(
+      parseMetricNumber('alerts', current.alerts),
+      parseMetricNumber('alerts', previous.alerts),
+    ),
+  }
+})
+
 const chartValues = computed(() => {
   if (useBackend) return dashboard.chartValues.value
   const metrics = dateData[selectedDateLocal.value]
@@ -96,6 +142,8 @@ const chartLabels = computed(() => {
 const currentRanking = computed(() =>
   useBackend ? dashboard.ranking.value : rankingSets[rankingModeLocal.value],
 )
+
+const hasRankingData = computed(() => (currentRanking.value?.length ?? 0) > 0)
 
 const consoleOrders = computed(() => (useBackend ? dashboard.dayOrders.value : orderStore.orders))
 const latestOrders = computed(() => consoleOrders.value.slice(0, 3))
@@ -152,10 +200,10 @@ defineExpose({
     </section>
 
     <section class="metrics-grid" aria-label="关键经营指标">
-      <article class="metric-card"><span class="metric-icon green"><AppIcon name="receipt"/></span><div class="metric-body"><p>今日订单数</p><strong class="metric-value">{{ currentMetrics.orders }}</strong></div><span class="trend positive">+12%</span></article>
-      <article class="metric-card"><span class="metric-icon neutral"><AppIcon name="money"/></span><div class="metric-body"><p>今日总营收</p><strong class="metric-value">{{ currentMetrics.revenue }}</strong></div><span class="trend positive">+8.4%</span></article>
-      <article class="metric-card"><span class="metric-icon blue"><AppIcon name="clipboard"/></span><div class="metric-body"><p>在售单品数</p><strong class="metric-value">{{ currentMetrics.products }}</strong></div><span class="trend stable">持平</span></article>
-      <article class="metric-card alert-card" tabindex="0" @click="emit('open-notifications')"><span class="metric-icon red"><AppIcon name="warning"/></span><div class="metric-body"><p>库存预警</p><strong class="metric-value red-text">{{ currentMetrics.alerts }}</strong></div><span class="trend warning">预警</span></article>
+      <article class="metric-card"><span class="metric-icon green"><AppIcon name="receipt"/></span><div class="metric-body"><p>今日订单数</p><strong class="metric-value">{{ currentMetrics.orders }}</strong></div><span class="trend" :class="currentMetricTrends.orders.tone">{{ currentMetricTrends.orders.label }}</span></article>
+      <article class="metric-card"><span class="metric-icon neutral"><AppIcon name="money"/></span><div class="metric-body"><p>今日总营收</p><strong class="metric-value">{{ currentMetrics.revenue }}</strong></div><span class="trend" :class="currentMetricTrends.revenue.tone">{{ currentMetricTrends.revenue.label }}</span></article>
+      <article class="metric-card"><span class="metric-icon blue"><AppIcon name="clipboard"/></span><div class="metric-body"><p>在售单品数</p><strong class="metric-value">{{ currentMetrics.products }}</strong></div><span class="trend" :class="currentMetricTrends.products.tone">{{ currentMetricTrends.products.label }}</span></article>
+      <article class="metric-card alert-card" tabindex="0" @click="emit('open-notifications')"><span class="metric-icon red"><AppIcon name="warning"/></span><div class="metric-body"><p>库存预警</p><strong class="metric-value red-text">{{ currentMetrics.alerts }}</strong></div><span class="trend" :class="currentMetricTrends.alerts.tone">{{ currentMetricTrends.alerts.label }}</span></article>
     </section>
 
     <section class="analytics-grid">
@@ -166,7 +214,12 @@ defineExpose({
 
       <article class="panel ranking-panel">
         <div class="panel-heading"><h2>畅销排行榜 Top 5</h2><el-dropdown trigger="click" popper-class="ranking-dropdown" @command="rankingMode = $event"><el-button class="more-button" aria-label="排行设置"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="volume" :class="{ selected: rankingMode === 'volume' }">按销量排序</el-dropdown-item><el-dropdown-item command="revenue" :class="{ selected: rankingMode === 'revenue' }">按营收排序</el-dropdown-item><el-dropdown-item command="growth" :class="{ selected: rankingMode === 'growth' }">按增长排序</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div>
-        <div class="ranking-list"><div v-for="([name,value,width,color]) in currentRanking" :key="name" class="ranking-item"><div class="ranking-copy"><strong>{{ name }}</strong><span>{{ value }}</span></div><div class="rank-track"><div class="rank-bar" :style="{ '--bar-width': `${width}%`, '--bar-color': color }"/></div></div></div>
+        <div v-if="hasRankingData" class="ranking-list"><div v-for="([name,value,width,color]) in currentRanking" :key="name" class="ranking-item"><div class="ranking-copy"><strong>{{ name }}</strong><span>{{ value }}</span></div><div class="rank-track"><div class="rank-bar" :style="{ '--bar-width': `${width}%`, '--bar-color': color }"/></div></div></div>
+        <div v-else class="ranking-empty" role="status">
+          <AppIcon name="box"/>
+          <p>暂无畅销数据</p>
+          <small>当前日期或门店还没有可统计的订单，请切换日期、门店或稍后再看。</small>
+        </div>
       </article>
     </section>
 

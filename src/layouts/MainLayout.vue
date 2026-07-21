@@ -1,13 +1,16 @@
 <script setup>
-import { computed, inject, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { navRoutes } from '../router/index.js'
-import { orderStore, createOrder as addOrder, formatMoney as formatOrderMoney, formatOrderItems, dashboardStatusClass } from '../stores/orders'
+import { orderStore, formatMoney as formatOrderMoney, formatOrderItems, dashboardStatusClass } from '../stores/orders'
 import { memberStore, findMember } from '../stores/members'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { syncMemberStore } from '../services/membersApi'
+import { fetchNotifications, markAllNotificationsRead } from '../services/notificationsApi'
+import { localIsoDate, computeOrderAmount } from '../services/ordersApi'
 import { useDashboard } from '../composables/useDashboard'
+import { useOrders } from '../composables/useOrders'
 import AppIcon from '../components/AppIcon.vue'
 import AiAssistant from '../components/AiAssistant.vue'
 
@@ -18,6 +21,7 @@ const route = useRoute()
 const router = useRouter()
 const useBackend = isSupabaseConfigured()
 const dashboard = useDashboard()
+const { createOrder: persistNewOrder, creating: orderCreating } = useOrders()
 
 const mockStores = ['中心旗舰店', '滨江轻食店', '云谷外卖店']
 const selectedStoreLocal = ref('中心旗舰店')
@@ -47,7 +51,11 @@ const sidebarCollapsed = ref(false)
 const searchQuery = ref('')
 const searchFocused = ref(false)
 const notificationVisible = ref(false)
-const notificationsRead = ref(false)
+const notifications = ref([])
+const notificationsLoading = ref(false)
+
+const unreadNotificationCount = computed(() => notifications.value.filter(item => !item.read).length)
+
 const orderDialogVisible = ref(false)
 const settingsVisible = ref(false)
 const ordersVisible = ref(false)
@@ -107,6 +115,31 @@ watch(
   },
 )
 
+watch(notificationVisible, visible => {
+  if (visible && useBackend) loadNotifications()
+})
+
+async function loadNotifications() {
+  if (!useBackend || !supabase) return
+  notificationsLoading.value = true
+  try {
+    notifications.value = await fetchNotifications(supabase, currentUser.value?.id)
+  } catch (e) {
+    ElMessage({
+      message: e.message || '加载通知失败（若提示缺少表，请执行 supabase/migrations/006_notifications.sql）',
+      type: 'error',
+      customClass: 'light-bites-message',
+      duration: 3600,
+    })
+  } finally {
+    notificationsLoading.value = false
+  }
+}
+
+onMounted(() => {
+  if (useBackend) loadNotifications()
+})
+
 function success(message) {
   ElMessage({ message, type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
@@ -144,8 +177,22 @@ function hideSearch() {
   window.setTimeout(() => { searchFocused.value = false }, 150)
 }
 
-function markAllRead() {
-  notificationsRead.value = true
+async function markAllRead() {
+  const unreadIds = notifications.value.filter(item => !item.read).map(item => item.id)
+  if (!unreadIds.length) return
+
+  if (useBackend && supabase && currentUser.value?.id) {
+    try {
+      await markAllNotificationsRead(supabase, currentUser.value.id, unreadIds)
+    } catch (e) {
+      ElMessage({ message: e.message || '标记已读失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+      return
+    }
+  }
+
+  notifications.value.forEach(item => {
+    item.read = true
+  })
   success('所有通知已标为已读')
 }
 
@@ -155,9 +202,18 @@ function selectOrderMember(memberId) {
   if (member) orderForm.customer = member.name
 }
 
+function syncOrderFormProduct() {
+  const catalog = productCatalog.value
+  if (!catalog.length) return
+  if (!catalog.includes(orderForm.product)) orderForm.product = catalog[0]
+}
+
 async function openNewOrderDialog() {
   orderDialogVisible.value = true
-  if (!useBackend || !supabase) return
+  if (!useBackend || !supabase) {
+    syncOrderFormProduct()
+    return
+  }
   orderFormLoading.value = true
   try {
     await Promise.all([
@@ -165,6 +221,7 @@ async function openNewOrderDialog() {
       dashboard.ensureProductPrices(),
       syncMemberStore(supabase),
     ])
+    syncOrderFormProduct()
   } catch (e) {
     ElMessage({ message: e.message || '加载下单数据失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
   } finally {
@@ -181,22 +238,40 @@ function increaseQuantity() {
 }
 
 async function createOrder() {
+  if (orderCreating.value) return
   if (!orderForm.customer.trim()) {
     ElMessage({ message: '请输入顾客姓名', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
     return
   }
   const prices = productPriceMap.value
-  const total = prices[orderForm.product] * orderForm.quantity
+  let total
+  try {
+    total = computeOrderAmount([[orderForm.product, orderForm.quantity]], prices)
+  } catch (e) {
+    ElMessage({ message: e.message || '订单金额无效', type: 'warning', customClass: 'light-bites-message', duration: 3200 })
+    return
+  }
   if (useBackend) {
     try {
-      const id = await dashboard.createOrder({
+      await dashboard.loadStoreList()
+      await dashboard.ensureProductPrices()
+      const storeId = dashboard.storeIdByName.value[selectedStore.value]
+      if (!storeId) {
+        ElMessage({ message: '请先选择门店', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
+        return
+      }
+      const id = await persistNewOrder({
+        storeId,
         customer: orderForm.customer.trim(),
         items: [[orderForm.product, orderForm.quantity]],
         amount: total,
         method: orderForm.method,
         note: orderForm.note,
         memberId: orderForm.memberId,
+        priceByProduct: productPriceMap.value,
       })
+      dashboard.selectedDateIso.value = localIsoDate()
+      await dashboard.refresh()
       Object.assign(orderForm, { customer: '', memberId: null, product: '抹茶能量碗', quantity: 1, method: '堂食', note: '' })
       orderDialogVisible.value = false
       success(`订单 ${id} 已创建，可在控制台与订单管理中查看`)
@@ -205,17 +280,21 @@ async function createOrder() {
     }
     return
   }
-  const order = addOrder({
-    customer: orderForm.customer.trim(),
-    items: [[orderForm.product, orderForm.quantity]],
-    amount: total,
-    method: orderForm.method,
-    status: '待处理',
-    memberId: orderForm.memberId,
-  })
-  Object.assign(orderForm, { customer: '', memberId: null, product: '抹茶能量碗', quantity: 1, method: '堂食', note: '' })
-  orderDialogVisible.value = false
-  success(`订单 ${order.id} 已创建并进入待处理队列`)
+  try {
+    const id = await persistNewOrder({
+      customer: orderForm.customer.trim(),
+      items: [[orderForm.product, orderForm.quantity]],
+      amount: total,
+      method: orderForm.method,
+      status: '待处理',
+      memberId: orderForm.memberId,
+    })
+    Object.assign(orderForm, { customer: '', memberId: null, product: '抹茶能量碗', quantity: 1, method: '堂食', note: '' })
+    orderDialogVisible.value = false
+    success(`订单 ${id} 已创建并进入待处理队列`)
+  } catch (e) {
+    ElMessage({ message: e.message || '创建订单失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+  }
 }
 
 function handleShortcut(event) {
@@ -275,9 +354,13 @@ onBeforeUnmount(() => {
           </el-dropdown>
 
           <el-popover v-model:visible="notificationVisible" placement="bottom-end" :width="360" trigger="click" popper-class="notification-popover">
-            <template #reference><el-button class="icon-button notification-btn" circle aria-label="通知"><AppIcon name="bell"/><span v-if="alertsEnabled && !notificationsRead" class="notification-dot"/></el-button></template>
-            <div class="popover-header"><div><strong>通知</strong><span>{{ notificationsRead ? '暂无未读' : '3 条未读' }}</span></div><button @click="markAllRead">全部已读</button></div>
-            <button class="notice-item" :class="{ unread: !notificationsRead }"><span class="notice-icon warning"><AppIcon name="warning"/></span><span><strong>3 种原料库存不足</strong><small>建议今天完成补货 · 8 分钟前</small></span></button>
+            <template #reference><el-button class="icon-button notification-btn" circle aria-label="通知"><AppIcon name="bell"/><span v-if="alertsEnabled && unreadNotificationCount > 0" class="notification-dot"/></el-button></template>
+            <div class="popover-header"><div><strong>通知</strong><span>{{ unreadNotificationCount ? `${unreadNotificationCount} 条未读` : '暂无未读' }}</span></div><button type="button" @click="markAllRead">全部已读</button></div>
+            <div v-if="notificationsLoading" class="notice-empty">加载中…</div>
+            <template v-else>
+              <button v-for="item in notifications" :key="item.id" type="button" class="notice-item" :class="{ unread: !item.read }"><span class="notice-icon" :class="item.iconClass"><AppIcon :name="item.icon"/></span><span><strong>{{ item.title }}</strong><small>{{ item.subtitle }}</small></span></button>
+              <p v-if="!notifications.length" class="notice-empty">{{ useBackend ? '暂无通知' : '连接 Supabase 后从数据库加载通知' }}</p>
+            </template>
           </el-popover>
 
           <el-button class="icon-button settings-button" circle aria-label="设置" @click="settingsVisible = true"><AppIcon name="settings"/></el-button>
@@ -304,7 +387,7 @@ onBeforeUnmount(() => {
     </main>
   </div>
 
-  <el-drawer v-model="orderDialogVisible" class="order-form-drawer" size="540px" :with-header="false" append-to-body>
+  <el-drawer v-model="orderDialogVisible" class="order-form-drawer" size="540px" :with-header="false" append-to-body :close-on-click-modal="!orderCreating" :close-on-press-escape="!orderCreating">
     <div class="modal-header"><div><span class="eyebrow">快速创建</span><h2>新建订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="orderDialogVisible = false"><AppIcon name="close"/></el-button></div>
     <div v-loading="orderFormLoading">
       <el-form label-position="top" class="order-create-form" @submit.prevent="createOrder">
@@ -331,7 +414,7 @@ onBeforeUnmount(() => {
         </div>
         <el-form-item label="备注"><el-input v-model="orderForm.note" type="textarea" :rows="3" placeholder="过敏信息、口味偏好等"/></el-form-item>
       </el-form>
-      <div class="drawer-actions order-form-drawer-actions"><el-button @click="orderDialogVisible = false">取消</el-button><el-button type="primary" @click="createOrder">创建订单</el-button></div>
+      <div class="drawer-actions order-form-drawer-actions"><el-button :disabled="orderCreating" @click="orderDialogVisible = false">取消</el-button><el-button type="primary" :loading="orderCreating" :disabled="orderCreating" @click="createOrder">创建订单</el-button></div>
     </div>
   </el-drawer>
 

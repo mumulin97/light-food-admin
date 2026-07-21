@@ -55,22 +55,60 @@ export async function fetchInventoryRisks(client) {
     }))
 }
 
-export async function fetchDayMetrics(client, storeId, isoDate, productCount, alertCount) {
+export function previousIsoDate(isoDate) {
+  const d = new Date(`${isoDate}T12:00:00`)
+  d.setDate(d.getDate() - 1)
+  return localIsoDate(d)
+}
+
+/** @returns {{ label: string, tone: 'positive' | 'negative' | 'stable' }} */
+export function computeTrendPercent(current, previous) {
+  const cur = Number(current) || 0
+  const prev = Number(previous) || 0
+  if (prev === 0 && cur === 0) return { label: '持平', tone: 'stable' }
+  if (prev === 0 && cur > 0) return { label: '+100%', tone: 'positive' }
+  const delta = ((cur - prev) / prev) * 100
+  const rounded = Math.round(delta * 10) / 10
+  if (Math.abs(rounded) < 0.05) return { label: '持平', tone: 'stable' }
+  const sign = rounded > 0 ? '+' : ''
+  return {
+    label: `${sign}${rounded}%`,
+    tone: rounded > 0 ? 'positive' : 'negative',
+  }
+}
+
+/** @returns {{ label: string, tone: 'positive' | 'negative' | 'stable' | 'warning' }} */
+export function computeAlertTrend(current, previous) {
+  const cur = Number(current) || 0
+  const prev = Number(previous) || 0
+  const diff = cur - prev
+  if (cur === 0 && prev === 0) return { label: '正常', tone: 'stable' }
+  if (cur === 0 && prev > 0) return { label: `${diff}`, tone: 'positive' }
+  if (diff > 0) return { label: `+${diff}`, tone: 'warning' }
+  if (diff < 0) return { label: `${diff}`, tone: 'positive' }
+  return { label: '预警', tone: 'warning' }
+}
+
+export async function fetchDayOrderStats(client, storeId, isoDate) {
   const orders = await fetchOrdersForDay(client, storeId, isoDate)
   const active = orders.filter(o => o.status !== '已取消')
   const revenue = active.reduce((sum, o) => sum + o.amount, 0)
+  return { orderCount: active.length, revenue }
+}
+
+export async function fetchDayMetrics(client, storeId, isoDate, productCount, alertCount) {
+  const { orderCount, revenue } = await fetchDayOrderStats(client, storeId, isoDate)
   return {
-    orders: String(active.length),
+    orders: String(orderCount),
     revenue: `¥${revenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
     products: String(productCount),
     alerts: String(alertCount),
   }
 }
 
-export async function fetchRevenueSeries(client, storeId, rangeDays) {
-  const end = new Date()
-  end.setHours(23, 59, 59, 999)
-  const start = new Date()
+export async function fetchRevenueSeries(client, storeId, rangeDays, endIsoDate = localIsoDate()) {
+  const end = new Date(`${endIsoDate}T23:59:59.999`)
+  const start = new Date(`${endIsoDate}T12:00:00`)
   start.setDate(start.getDate() - (rangeDays - 1))
   start.setHours(0, 0, 0, 0)
 

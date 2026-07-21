@@ -1,5 +1,6 @@
 <script setup>
 import { nextTick, reactive, ref } from 'vue'
+import AppIcon from './AppIcon.vue'
 
 const props = defineProps({
   context: { type: Object, default: () => ({}) },
@@ -216,7 +217,7 @@ function resetConversation() {
             @keydown.enter.exact.prevent="ask()"
           />
           <button class="ai-assistant-send" type="submit" :disabled="!input.trim() || sending" aria-label="发送">
-            {{ sending ? '…' : '↑' }}
+            <AppIcon name="send" />
           </button>
         </div>
         <div class="ai-assistant-note">AI 建议仅供经营参考，关键操作仍需人工确认</div>

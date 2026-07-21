@@ -13,12 +13,19 @@ export function dayRange(isoDate) {
   return { start: start.toISOString(), end: end.toISOString() }
 }
 
+export function formatOrderDateTime(isoOrDate) {
+  const date = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate)
+  if (Number.isNaN(date.getTime())) return '—'
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  return `${y}-${m}-${d} ${hh}:${mm}`
+}
+
 function formatTimeLabel(iso) {
-  const date = new Date(iso)
-  const hour = date.getHours()
-  const label = hour < 12 ? '上午' : '下午'
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12
-  return `${label} ${hour12}:${String(date.getMinutes()).padStart(2, '0')}`
+  return formatOrderDateTime(iso)
 }
 
 export function mapOrderRow(row, itemsByOrder) {
@@ -92,7 +99,27 @@ export async function fetchOrdersForDay(client, storeId, isoDate) {
   return fetchOrders(client, { storeId, fromIsoDate: isoDate, toIsoDate: isoDate })
 }
 
+/** @returns {number} */
+export function computeOrderAmount(items, priceByProduct = {}, amount) {
+  const direct = Number(amount)
+  if (Number.isFinite(direct) && direct > 0) {
+    return Math.round(direct * 100) / 100
+  }
+  let total = 0
+  for (const [productName, quantity] of items || []) {
+    const unit = Number(priceByProduct[productName])
+    const qty = Number(quantity)
+    if (!Number.isFinite(unit) || !Number.isFinite(qty)) continue
+    total += unit * qty
+  }
+  if (!Number.isFinite(total) || total <= 0) {
+    throw new Error('无法计算订单金额，请重新选择产品或确认菜单价格已配置')
+  }
+  return Math.round(total * 100) / 100
+}
+
 export async function createOrderInDb(client, { storeId, customer, items, amount, method, note, memberId, priceByProduct = {} }) {
+  const resolvedAmount = computeOrderAmount(items, priceByProduct, amount)
   const { data: newId, error: idError } = await client.rpc('next_order_id')
   if (idError) throw idError
 
@@ -100,7 +127,7 @@ export async function createOrderInDb(client, { storeId, customer, items, amount
     id: newId,
     store_id: storeId,
     customer_name: customer,
-    amount,
+    amount: resolvedAmount,
     status: '待处理',
     method,
     note: note || null,
@@ -114,7 +141,7 @@ export async function createOrderInDb(client, { storeId, customer, items, amount
     order_id: newId,
     product_name: productName,
     quantity,
-    unit_price: priceByProduct[productName] ?? null,
+    unit_price: Number(priceByProduct[productName]) || null,
   }))
   const { error: itemsError } = await client.from('order_items').insert(itemRows)
   if (itemsError) throw itemsError

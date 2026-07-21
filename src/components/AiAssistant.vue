@@ -1,5 +1,5 @@
 <script setup>
-import { nextTick, ref } from 'vue'
+import { nextTick, reactive, ref } from 'vue'
 
 const props = defineProps({
   context: { type: Object, default: () => ({}) },
@@ -9,6 +9,7 @@ const props = defineProps({
 const visible = ref(false)
 const input = ref('')
 const sending = ref(false)
+const receiving = ref(false)
 const messageList = ref(null)
 const messages = ref([
   {
@@ -39,6 +40,65 @@ async function scrollToLatest() {
   if (messageList.value) messageList.value.scrollTop = messageList.value.scrollHeight
 }
 
+function characterDelay(character) {
+  if (/\n/.test(character)) return 85
+  if (/[。！？；：]/.test(character)) return 72
+  if (/[，、]/.test(character)) return 46
+  return 28
+}
+
+async function appendCharacterByCharacter(targetMessage, content) {
+  for (const character of Array.from(content)) {
+    targetMessage.content += character
+    await scrollToLatest()
+    await new Promise(resolve => window.setTimeout(resolve, characterDelay(character)))
+  }
+}
+
+async function consumeEventStream(response, targetMessage, onFirstContent) {
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error('浏览器无法读取 AI 数据流')
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  const processBlock = async block => {
+    const lines = block.split('\n')
+    const event = lines.find(line => line.startsWith('event:'))?.slice(6).trim() || ''
+    const data = lines
+      .filter(line => line.startsWith('data:'))
+      .map(line => line.slice(5).trimStart())
+      .join('\n')
+    if (!data) return
+
+    let payload = {}
+    try {
+      payload = JSON.parse(data)
+    } catch {
+      return
+    }
+
+    if (event === 'delta' && payload.content) {
+      if (!targetMessage.started) {
+        targetMessage.started = true
+        onFirstContent()
+      }
+      await appendCharacterByCharacter(targetMessage, payload.content)
+    }
+    if (event === 'error') throw new Error(payload.error || 'AI 流式响应失败')
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done }).replace(/\r\n/g, '\n')
+    const blocks = buffer.split('\n\n')
+    buffer = blocks.pop() || ''
+    for (const block of blocks) await processBlock(block)
+    if (done) break
+  }
+  if (buffer.trim()) await processBlock(buffer)
+}
+
 async function ask(question = input.value) {
   const text = String(question || '').trim()
   if (!text || sending.value) return
@@ -47,6 +107,7 @@ async function ask(question = input.value) {
   input.value = ''
   sending.value = true
   await scrollToLatest()
+  let assistantMessage = null
 
   try {
     const response = await fetch('/.netlify/functions/ai-assistant', {
@@ -58,10 +119,20 @@ async function ask(question = input.value) {
         userId: stableUserId(),
       }),
     })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(data.error || 'AI 服务暂时不可用')
-    if (!data.answer) throw new Error('未连接到本地 Netlify Function')
-    messages.value.push({ role: 'assistant', content: data.answer })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      throw new Error(data.error || 'AI 服务暂时不可用')
+    }
+    if (!response.headers.get('content-type')?.includes('text/event-stream')) {
+      throw new Error('未连接到流式 AI Function')
+    }
+
+    assistantMessage = reactive({ role: 'assistant', content: '', started: false })
+    await consumeEventStream(response, assistantMessage, () => {
+      messages.value.push(assistantMessage)
+      receiving.value = true
+    })
+    if (!assistantMessage.content) throw new Error('AI 没有返回内容')
   } catch (error) {
     const message = error?.message || 'AI 服务暂时不可用'
     let hint = '请稍后重试，或检查 Netlify 环境变量和 Coze API 发布状态。'
@@ -72,6 +143,7 @@ async function ask(question = input.value) {
     }
     messages.value.push({ role: 'error', content: `${message}。${hint}` })
   } finally {
+    receiving.value = false
     sending.value = false
     await scrollToLatest()
   }
@@ -111,7 +183,7 @@ function resetConversation() {
         >
           <div class="ai-message-bubble">{{ message.content }}</div>
         </article>
-        <article v-if="sending" class="ai-message ai-message--assistant">
+        <article v-if="sending && !receiving" class="ai-message ai-message--assistant">
           <div class="ai-message-bubble">
             <span class="ai-typing" aria-label="正在分析">
               <i /><i /><i />

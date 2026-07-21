@@ -24,7 +24,17 @@ function localNetlifyFunctions(env) {
           const response = await aiAssistantHandler(request)
           res.statusCode = response.status
           response.headers.forEach((value, key) => res.setHeader(key, value))
-          res.end(Buffer.from(await response.arrayBuffer()))
+          if (!response.body) {
+            res.end()
+            return
+          }
+          const reader = response.body.getReader()
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            res.write(Buffer.from(value))
+          }
+          res.end()
         } catch (error) {
           res.statusCode = 500
           res.setHeader('content-type', 'application/json; charset=utf-8')

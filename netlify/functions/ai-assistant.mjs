@@ -15,11 +15,14 @@ function sanitizeUserId(value) {
 }
 
 function buildBusinessPrompt(question, context) {
+  const now = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
   return [
+    `当前时间：${now}（北京时间）`,
     `用户问题：${question}`,
     '',
     '以下是由轻食管理系统从 Supabase 或当前演示数据中整理的 business_context。',
-    '请只依据这些数据回答；数据不足时明确说明，不要补造数字。',
+    '回答经营数据相关问题时只依据这些数据，数据不足时明确说明，不要补造数字；',
+    '其他常识性或系统使用类问题可正常回答。',
     `business_context: ${JSON.stringify(context || {})}`,
   ].join('\n')
 }
@@ -162,7 +165,9 @@ export default async function handler(request) {
       signal: controller.signal,
     })
 
-    if (!response.ok) {
+    /** Coze 流式接口出错时仍返回 200 + JSON 错误体，只能靠 content-type 区分 */
+    const isEventStream = (response.headers.get('content-type') || '').includes('text/event-stream')
+    if (!response.ok || !isEventStream) {
       const raw = await response.text()
       clearTimeout(timeout)
       let detail = ''
@@ -172,7 +177,7 @@ export default async function handler(request) {
       } catch {
         detail = raw.slice(0, 240)
       }
-      return jsonResponse({ error: detail || `Coze 请求失败（${response.status}）` }, response.status)
+      return jsonResponse({ error: detail || `Coze 请求失败（${response.status}）` }, response.ok ? 502 : response.status)
     }
 
     if (!response.body) {

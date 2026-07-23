@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1400" viewBox="0 0 1400 1400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fcf9"/>
+      <stop offset="1" stop-color="#edf7f1"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#258e63"/>
+      <stop offset="1" stop-color="#5ab489"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#1d4a35" flood-opacity="0.09"/>
+    </filter>
+    <style>
+      .font { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Arial, sans-serif; }
+      .item { font-size: 31px; font-weight: 760; fill: #183b2b; }
+      .note { font-size: 23px; font-weight: 500; fill: #687b71; }
+      .num { font-size: 21px; font-weight: 800; fill: #ffffff; }
+      .chip { font-size: 18px; font-weight: 700; fill: #337154; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="1660" fill="url(#bg)"/>
+  <circle cx="1285" cy="100" r="210" fill="#dff2e6" opacity="0.7"/>
+  <circle cx="90" cy="1580" r="180" fill="#e0f2e7" opacity="0.8"/>
+
+  <g class="font" transform="translate(112 0) scale(0.84)">
+    <rect x="70" y="66" width="82" height="82" rx="24" fill="url(#green)" filter="url(#shadow)"/>
+    <text x="111" y="119" text-anchor="middle" font-size="31" font-weight="820" fill="#ffffff">AI</text>
+    <text x="180" y="101" font-size="39" font-weight="820" fill="#173c2b">轻食管理系统 · 技术架构</text>
+    <text x="180" y="140" font-size="22" font-weight="520" fill="#71857a">一套轻量、易部署的 Serverless 管理后台</text>
+
+    <rect x="70" y="192" width="1260" height="104" rx="26" fill="#ffffff" stroke="#d8e8de" stroke-width="2" filter="url(#shadow)"/>
+    <text x="700" y="238" text-anchor="middle" font-size="29" font-weight="760" fill="#195239">Vue 3 + Supabase + Coze + Netlify + Netlify Functions</text>
+    <text x="700" y="272" text-anchor="middle" font-size="21" font-weight="520" fill="#71837a">前端、数据库、AI 与部署服务按需组合，无需自建传统服务器</text>
+
+    <!-- Item 1 -->
+    <rect x="70" y="332" width="1260" height="120" rx="24" fill="#ffffff" stroke="#dce9e1" filter="url(#shadow)"/>
+    <circle cx="125" cy="392" r="28" fill="#3b9b70"/><text x="125" y="400" text-anchor="middle" class="num">1</text>
+    <text x="180" y="382" class="item">前端框架：Vue 3</text>
+    <text x="180" y="420" class="note">负责管理后台页面、组件状态和用户交互。</text>
+
+    <!-- Item 2 -->
+    <rect x="70" y="474" width="1260" height="120" rx="24" fill="#ffffff" stroke="#dce9e1" filter="url(#shadow)"/>
+    <circle cx="125" cy="534" r="28" fill="#3b9b70"/><text x="125" y="542" text-anchor="middle" class="num">2</text>
+    <text x="180" y="524" class="item">构建工具：Vite</text>
+    <text x="180" y="562" class="note">提供本地开发服务器，并将 Vue 项目打包为可部署文件。</text>
+
+    <!-- Item 3 -->
+    <rect x="70" y="616" width="1260" height="120" rx="24" fill="#ffffff" stroke="#dce9e1" filter="url(#shadow)"/>
+    <circle cx="125" cy="676" r="28" fill="#3b9b70"/><text x="125" y="684" text-anchor="middle" class="num">3</text>
+    <text x="180" y="666" class="item">路由：Vue Router</text>
+    <text x="180" y="704" class="note">管理仪表盘、订单、菜品、员工等页面之间的跳转。</text>
+
+    <!-- Item 4 -->
+    <rect x="70" y="758" width="1260" height="120" rx="24" fill="#ffffff" stroke="#dce9e1" filter="url(#shadow)"/>
+    <circle cx="125" cy="818" r="28" fill="#3b9b70"/><text x="125" y="826" text-anchor="middle" class="num">4</text>
+    <text x="180" y="808" class="item">UI 与图表：Element Plus + ECharts</text>
+    <text x="180" y="846" class="note">Element Plus 提供 Vue 3 UI 组件；ECharts 展示营收等数据图表。</text>
+
+    <!-- Item 5 -->
+    <rect x="70" y="900" width="1260" height="154" rx="24" fill="#ffffff" stroke="#dce9e1" filter="url(#shadow)"/>
+    <circle cx="125" cy="977" r="28" fill="#3b9b70"/><text x="125" y="985" text-anchor="middle" class="num">5</text>
+    <text x="180" y="956" class="item">数据库与后端服务：Supabase</text>
+    <text x="180" y="996" class="note">提供 PostgreSQL 数据库、用户登录认证和 RLS 权限控制。</text>
+    <text x="180" y="1030" class="note">Vue 前端通过 supabase-js 直接读写订单、库存、员工等业务数据。</text>
+
+    <!-- Item 6 -->
+    <rect x="70" y="1076" width="1260" height="120" rx="24" fill="#ffffff" stroke="#dce9e1" filter="url(#shadow)"/>
+    <circle cx="125" cy="1136" r="28" fill="#3b9b70"/><text x="125" y="1144" text-anchor="middle" class="num">6</text>
+    <text x="180" y="1126" class="item">AI 能力：Coze 智能体</text>
+    <text x="180" y="1164" class="note">提供经营问答、数据分析建议和流式 AI 回复。</text>
+
+    <!-- Item 7 -->
+    <rect x="70" y="1218" width="1260" height="154" rx="24" fill="#ffffff" stroke="#dce9e1" filter="url(#shadow)"/>
+    <circle cx="125" cy="1295" r="28" fill="#3b9b70"/><text x="125" y="1303" text-anchor="middle" class="num">7</text>
+    <text x="180" y="1274" class="item">AI 中间层：Netlify Function</text>
+    <text x="180" y="1314" class="note">在服务端保存 Coze PAT，接收前端问题并请求 Coze API。</text>
+    <text x="180" y="1348" class="note">将流式回答转发给浏览器，避免敏感令牌暴露在前端。</text>
+
+    <!-- Item 8 -->
+    <rect x="70" y="1394" width="1260" height="154" rx="24" fill="#ffffff" stroke="#dce9e1" filter="url(#shadow)"/>
+    <circle cx="125" cy="1471" r="28" fill="#3b9b70"/><text x="125" y="1479" text-anchor="middle" class="num">8</text>
+    <text x="180" y="1450" class="item">部署与托管：Netlify</text>
+    <text x="180" y="1490" class="note">部署 Vite 打包后的 dist，并运行 Netlify Functions。</text>
+    <text x="180" y="1524" class="note">GitHub main 分支更新后，自动构建并发布最新版本。</text>
+
+    <rect x="70" y="1580" width="316" height="42" rx="21" fill="#e2f3e9"/>
+    <text x="228" y="1608" text-anchor="middle" class="chip">BaaS + Serverless 架构</text>
+    <text x="1330" y="1608" text-anchor="end" font-size="17" font-weight="560" fill="#87988f">轻食管理系统</text>
+  </g>
+</svg>

@@ -32,6 +32,7 @@ export function useOrders() {
     try {
       const range = options.fromIsoDate ? options : listRange.value
       orders.value = await fetchOrders(supabase, {
+        storeId: options.storeId,
         fromIsoDate: range.from,
         toIsoDate: range.to,
         limit: 500,

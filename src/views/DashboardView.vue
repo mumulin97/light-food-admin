@@ -206,6 +206,18 @@ defineExpose({
       <article class="metric-card alert-card" tabindex="0" @click="emit('open-notifications')"><span class="metric-icon red"><AppIcon name="warning"/></span><div class="metric-body"><p>库存预警</p><strong class="metric-value red-text">{{ currentMetrics.alerts }}</strong></div><span class="trend" :class="currentMetricTrends.alerts.tone">{{ currentMetricTrends.alerts.label }}</span></article>
     </section>
 
+    <section class="lower-grid">
+      <article class="panel orders-panel">
+        <div class="panel-heading"><h2>最新订单日志</h2><el-button class="view-all" text @click="emit('open-all-orders')">查看全部<AppIcon name="arrow"/></el-button></div>
+        <el-table :data="latestOrders" class="orders-table" table-layout="fixed">
+          <el-table-column prop="id" label="订单编号" min-width="92"/><el-table-column prop="customer" label="顾客姓名" min-width="82"/>
+          <el-table-column label="订单状态" min-width="88"><template #default="{ row }"><span class="status" :class="dashboardStatusClass(row.status)">{{ row.status }}</span></template></el-table-column>
+          <el-table-column label="交易金额" min-width="88" align="right"><template #default="{ row }">{{ formatOrderMoney(row.amount) }}</template></el-table-column>
+        </el-table>
+      </article>
+      <article class="efficiency-card"><div><span class="efficiency-kicker">今日厨房状态</span><h2>厨房运营效能</h2><p>您的团队今日表现优异，运营效率达到 <strong>94%</strong>。请保持！</p></div><div class="efficiency-meter"><span style="--value:94%"/></div><div class="efficiency-actions"><el-button @click="ElMessage({ message: '今日排班：前厅 5 人，后厨 7 人，配送 3 人', customClass: 'light-bites-message', duration: 2400 })">查看排班</el-button><el-button @click="ElMessage({ message: '出餐均时 8.6 分钟，较上周提升 11%', customClass: 'light-bites-message', duration: 2400 })">效率详情<AppIcon name="arrow"/></el-button></div></article>
+    </section>
+
     <section class="analytics-grid">
       <article class="panel chart-panel">
         <div class="panel-heading"><h2>七日营收趋势</h2><div class="chart-actions"><span class="legend"><i/>营业收入</span><el-dropdown trigger="click" popper-class="range-dropdown" @command="currentRange = Number($event)"><el-button class="range-button">最近 {{ currentRange }} 天<AppIcon name="chevron"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="range in [7,14,30]" :key="range" :command="range" :class="{ selected: currentRange === range }">最近 {{ range }} 天</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></div>
@@ -221,18 +233,6 @@ defineExpose({
           <small>当前日期或门店还没有可统计的订单，请切换日期、门店或稍后再看。</small>
         </div>
       </article>
-    </section>
-
-    <section class="lower-grid">
-      <article class="panel orders-panel">
-        <div class="panel-heading"><h2>最新订单日志</h2><el-button class="view-all" text @click="emit('open-all-orders')">查看全部<AppIcon name="arrow"/></el-button></div>
-        <el-table :data="latestOrders" class="orders-table" table-layout="fixed">
-          <el-table-column prop="id" label="订单编号" min-width="92"/><el-table-column prop="customer" label="顾客姓名" min-width="82"/>
-          <el-table-column label="订单状态" min-width="88"><template #default="{ row }"><span class="status" :class="dashboardStatusClass(row.status)">{{ row.status }}</span></template></el-table-column>
-          <el-table-column label="交易金额" min-width="88" align="right"><template #default="{ row }">{{ formatOrderMoney(row.amount) }}</template></el-table-column>
-        </el-table>
-      </article>
-      <article class="efficiency-card"><div><span class="efficiency-kicker">今日厨房状态</span><h2>厨房运营效能</h2><p>您的团队今日表现优异，运营效率达到 <strong>94%</strong>。请保持！</p></div><div class="efficiency-meter"><span style="--value:94%"/></div><div class="efficiency-actions"><el-button @click="ElMessage({ message: '今日排班：前厅 5 人，后厨 7 人，配送 3 人', customClass: 'light-bites-message', duration: 2400 })">查看排班</el-button><el-button @click="ElMessage({ message: '出餐均时 8.6 分钟，较上周提升 11%', customClass: 'light-bites-message', duration: 2400 })">效率详情<AppIcon name="arrow"/></el-button></div></article>
     </section>
   </div>
 </template>

@@ -11,6 +11,7 @@ import {
   ElFormItem,
   ElInput,
   ElInputNumber,
+  ElLoading,
   ElOption,
   ElPagination,
   ElPopover,
@@ -30,6 +31,7 @@ import 'element-plus/theme-chalk/el-dropdown.css'
 import 'element-plus/theme-chalk/el-form.css'
 import 'element-plus/theme-chalk/el-input.css'
 import 'element-plus/theme-chalk/el-input-number.css'
+import 'element-plus/theme-chalk/el-loading.css'
 import 'element-plus/theme-chalk/el-message.css'
 import 'element-plus/theme-chalk/el-option.css'
 import 'element-plus/theme-chalk/el-overlay.css'
@@ -61,6 +63,7 @@ app.use(router)
   ElFormItem,
   ElInput,
   ElInputNumber,
+  ElLoading,
   ElOption,
   ElPagination,
   ElPopover,

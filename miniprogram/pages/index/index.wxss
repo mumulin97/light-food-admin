@@ -1,0 +1,453 @@
+.container {
+  min-height: 100vh;
+  background-color: var(--bg);
+  padding-bottom: 220rpx;
+  overflow-x: hidden;
+}
+
+.header-wrap {
+  position: relative;
+  z-index: 20;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  background-color: var(--card);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.store-icon {
+  font-size: 36rpx;
+  margin-right: 12rpx;
+}
+
+.store-info {
+  display: flex;
+  align-items: center;
+}
+
+.store-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--ink);
+  max-width: 360rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.store-arrow {
+  font-size: 20rpx;
+  color: var(--ink-2);
+  margin-left: 8rpx;
+  transition: transform 0.2s ease;
+}
+
+.store-arrow.open {
+  transform: rotate(180deg);
+}
+
+.header-right {
+  width: 68rpx;
+  height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--brand-050);
+  border-radius: 50%;
+}
+
+.search-icon {
+  font-size: 32rpx;
+}
+
+/* 门店下拉列表 */
+.store-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: var(--card);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+
+.store-dropdown.open {
+  max-height: 600rpx;
+  opacity: 1;
+}
+
+.store-dropdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 32rpx;
+  font-size: 28rpx;
+  color: var(--ink);
+  border-top: 1rpx solid var(--line);
+}
+
+.store-dropdown-item:first-child {
+  border-top: none;
+}
+
+.store-dropdown-item.active {
+  color: var(--brand);
+  font-weight: 600;
+  background-color: var(--brand-050);
+}
+
+.store-check {
+  color: var(--brand);
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.store-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.35);
+  z-index: 10;
+}
+
+/* Banner —— 绿色渐变 */
+.banner {
+  position: relative;
+  margin: 24rpx 20rpx;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  height: 320rpx;
+  background: linear-gradient(155deg, #c6e3a4 0%, #8fc06a 45%, #5c7746 100%);
+  box-shadow: 0 12rpx 28rpx rgba(92, 119, 70, 0.28);
+}
+
+.banner-glow {
+  position: absolute;
+  top: -80rpx;
+  right: -60rpx;
+  width: 320rpx;
+  height: 320rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 70%);
+}
+
+.banner-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  padding: 40rpx 36rpx;
+}
+
+.banner-tag {
+  display: inline-block;
+  background-color: rgba(27, 55, 25, 0.55);
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 8rpx 20rpx;
+  border-radius: var(--r-pill);
+  margin-right: 20rpx;
+  backdrop-filter: blur(6rpx);
+}
+
+.banner-title {
+  font-size: 42rpx;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.2);
+}
+
+/* 分类标签 */
+.category-tabs {
+  white-space: nowrap;
+  padding: 0 20rpx;
+  margin-bottom: 24rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.category-item {
+  display: inline-block;
+  background-color: var(--brand-050);
+  color: var(--ink-2);
+  font-size: 26rpx;
+  font-weight: 500;
+  padding: 16rpx 34rpx;
+  border-radius: var(--r-pill);
+  margin-right: 16rpx;
+  transition: all 0.15s ease;
+}
+
+.category-item.active {
+  background-color: var(--brand);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: var(--shadow-brand);
+}
+
+.section-title {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: var(--ink);
+  padding: 0 32rpx;
+  margin-bottom: 20rpx;
+}
+
+/* 加载状态 */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 80rpx 0;
+  color: var(--ink-3);
+  font-size: 28rpx;
+}
+
+/* 菜品列表 */
+.product-list {
+  padding: 0 20rpx;
+}
+
+.product-card {
+  display: flex;
+  align-items: center;
+  background-color: var(--card);
+  border-radius: var(--r-lg);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.product-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 4rpx 14rpx rgba(31, 45, 34, 0.08);
+}
+
+.product-image-wrapper {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #f3faec 0%, #e6f2da 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 24rpx;
+  flex-shrink: 0;
+}
+
+.product-emoji {
+  font-size: 80rpx;
+  line-height: 1;
+}
+
+.product-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.product-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.product-category {
+  font-size: 24rpx;
+  color: var(--ink-3);
+  margin-right: 12rpx;
+}
+
+.product-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 8rpx;
+}
+
+.product-nutrition {
+  font-size: 24rpx;
+  color: var(--ink-3);
+  margin-bottom: 16rpx;
+}
+
+.product-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.product-price {
+  font-size: 38rpx;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.btn-add {
+  position: relative;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background-color: var(--brand);
+  box-shadow: var(--shadow-brand);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+/* 用 CSS 画十字，保证绝对居中 */
+.btn-add::before,
+.btn-add::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background-color: #ffffff;
+  border-radius: 2rpx;
+}
+
+.btn-add::before {
+  width: 28rpx;
+  height: 5rpx;
+  transform: translate(-50%, -50%);
+}
+
+.btn-add::after {
+  width: 5rpx;
+  height: 28rpx;
+  transform: translate(-50%, -50%);
+}
+
+.btn-add:active {
+  background-color: var(--brand-dark);
+  transform: scale(0.9);
+}
+
+.tag {
+  display: inline-block;
+  padding: 6rpx 16rpx;
+  border-radius: 10rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.tag-signature {
+  background-color: var(--accent-100);
+  color: var(--accent);
+}
+
+.tag-soldout {
+  background-color: #e8eae7;
+  color: var(--ink-3);
+}
+
+.empty {
+  display: flex;
+  justify-content: center;
+  padding: 80rpx 0;
+  color: var(--ink-3);
+  font-size: 28rpx;
+}
+
+/* 购物车栏 */
+.cart-bar {
+  position: fixed;
+  bottom: calc(120rpx + env(safe-area-inset-bottom));
+  left: 20rpx;
+  right: 20rpx;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #22271f;
+  border-radius: var(--r-pill);
+  padding: 18rpx 20rpx 18rpx 24rpx;
+  box-shadow: var(--shadow-float);
+}
+
+.cart-left {
+  display: flex;
+  align-items: center;
+}
+
+.cart-icon-wrapper {
+  position: relative;
+  width: 80rpx;
+  height: 80rpx;
+  background-color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+}
+
+.cart-icon {
+  font-size: 40rpx;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  background-color: #ff5252;
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 600;
+  min-width: 36rpx;
+  height: 36rpx;
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8rpx;
+  border: 2rpx solid #22271f;
+}
+
+.cart-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.cart-items {
+  font-size: 24rpx;
+  color: #b7bfb4;
+}
+
+.cart-total {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.checkout-btn {
+  background-color: var(--brand);
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: 600;
+  padding: 20rpx 48rpx;
+  border-radius: var(--r-pill);
+  transition: background-color 0.15s ease;
+}
+
+.checkout-btn:active {
+  background-color: var(--brand-dark);
+}

@@ -109,9 +109,12 @@ const searchResults = computed(() => {
 
 watch(
   () => route.path,
-  () => {
+  (newPath, oldPath) => {
     searchQuery.value = ''
     sidebarOpen.value = false
+    if (useBackend && oldPath === '/stores') {
+      dashboard.refreshStoreList().catch(() => {})
+    }
   },
 )
 
@@ -318,7 +321,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="app-shell">
     <aside id="sidebar" class="sidebar" :class="{ open: sidebarOpen, collapsed: sidebarCollapsed }" aria-label="主要导航">
-      <div class="brand"><div class="brand-mark"><span>🥗</span></div><div class="brand-text"><strong>轻食点</strong><small>餐饮管理后台</small></div></div>
+      <div class="brand"><div class="brand-mark"><img src="/logo.png" alt="猴猴美食园" /></div><div class="brand-text"><strong>猴猴美食园</strong><small>餐饮管理后台</small></div></div>
       <button class="sidebar-toggle" aria-label="切换侧边栏" @click="sidebarCollapsed = !sidebarCollapsed"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
       <nav class="nav-list">
         <RouterLink

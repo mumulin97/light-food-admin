@@ -72,6 +72,10 @@ async function loadStoreList(force = false) {
   return storeListPromise
 }
 
+async function refreshStoreList() {
+  return loadStoreList(true)
+}
+
 async function ensureProductPrices() {
   if (!enabled || !supabase) return productPrices.value
   if (Object.keys(productPrices.value).length) return productPrices.value
@@ -189,6 +193,7 @@ export function useDashboard() {
     productPrices,
     inventoryRisks,
     loadStoreList,
+    refreshStoreList,
     ensureProductPrices,
     initStores,
     refresh,

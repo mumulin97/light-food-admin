@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import { useOrders } from '../composables/useOrders'
+import { useDashboard } from '../composables/useDashboard'
 import { supabase } from '../lib/supabase'
 import { syncInventoryStore, updateIngredientStock } from '../services/inventoryApi'
 import { syncMemberStore, updateMember } from '../services/membersApi'
@@ -19,6 +20,7 @@ const pageSize = 6
 const FILTER_STATUSES = ['全部', ...ALL_STATUSES]
 
 const { enabled: useBackend, orders, loading, error: ordersLoadError, loadOrders, saveOrderState, listRange, setListRange } = useOrders()
+const { storeIdByName, selectedStore } = useDashboard()
 
 const draftFrom = ref('')
 const draftTo = ref('')
@@ -78,14 +80,21 @@ const orderRange = computed(() => {
 })
 
 watch([() => props.query, appliedOrderId, appliedStatus], () => { orderPage.value = 1 })
+watch(selectedStore, () => {
+  if (useBackend) {
+    const storeId = storeIdByName.value[selectedStore.value]
+    loadOrders({ storeId }).catch(() => {})
+  }
+})
 
 onMounted(() => {
   syncDraftRangeFromList()
   if (useBackend) {
     appliedStatus.value = '全部'
     draftStatus.value = '全部'
+    const storeId = storeIdByName.value[selectedStore.value]
     Promise.all([
-      loadOrders().catch(() => {}),
+      loadOrders({ storeId }).catch(() => {}),
       supabase ? syncInventoryStore(supabase) : Promise.resolve(),
       supabase ? syncMemberStore(supabase) : Promise.resolve(),
     ])
@@ -119,7 +128,8 @@ async function applyFilters() {
   if (useBackend) {
     try {
       await setListRange(draftFrom.value, draftTo.value)
-      await loadOrders()
+      const storeId = storeIdByName.value[selectedStore.value]
+      await loadOrders({ storeId })
     } catch (e) {
       ElMessage({ message: e.message || '按日期加载订单失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
       return
@@ -180,7 +190,8 @@ async function refreshOrders() {
   }
   refreshing.value = true
   try {
-    await loadOrders()
+    const storeId = storeIdByName.value[selectedStore.value]
+    await loadOrders({ storeId })
     ElMessage({ message: '订单列表已刷新', type: 'success', customClass: 'light-bites-message', duration: 2400 })
   } catch (e) {
     ElMessage({ message: e.message || '刷新失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
@@ -190,7 +201,7 @@ async function refreshOrders() {
 }
 
 function exportOrders() {
-  const rows = [['订单号', '客户', '金额', '状态', '下单时间', '就餐方式', '商品'], ...filteredOrders.value.map(order => [order.id, order.customer, order.amount.toFixed(2), order.status, order.time, order.method, order.items.map(([name, qty]) => `${name}×${qty}`).join(' ')])]
+  const rows = [['订单号', '客户', '金额', '状态', '下单时间', '就餐方式', '备注', '商品'], ...filteredOrders.value.map(order => [order.id, order.customer, order.amount.toFixed(2), order.status, order.time, order.method, order.note || '', order.items.map(([name, qty]) => `${name}×${qty}`).join(' ')])]
   const csv = `﻿${rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\n')}`
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
   const link = document.createElement('a')
@@ -240,8 +251,9 @@ function exportOrders() {
     <div class="member-table-card">
       <el-table :data="pageOrders" class="member-table order-table" table-layout="fixed" :row-class-name="rowClassName" empty-text="没有符合条件的订单">
         <el-table-column prop="id" label="订单号" min-width="120"><template #default="{ row }"><span class="order-id">{{ row.id }}</span></template></el-table-column>
-        <el-table-column label="客户" min-width="120"><template #default="{ row }"><div class="order-customer"><span class="order-avatar" :style="{ background: row.avatarColor }">{{ row.customer.charAt(0) }}</span><span>{{ row.customer }}</span></div></template></el-table-column>
+        <el-table-column label="客户" min-width="180"><template #default="{ row }"><div class="order-customer"><span class="order-avatar" :style="{ background: row.avatarColor }">{{ row.customer.charAt(0) }}</span><span>{{ row.customer }}</span></div></template></el-table-column>
         <el-table-column label="菜品" min-width="168" show-overflow-tooltip><template #default="{ row }"><span class="order-items-text">{{ formatOrderItems(row.items || []) }}</span></template></el-table-column>
+        <el-table-column prop="note" label="备注" min-width="140"><template #default="{ row }"><span class="order-note">{{ row.note || '—' }}</span></template></el-table-column>
         <el-table-column label="金额" min-width="88"><template #default="{ row }"><strong class="order-amount">{{ formatMoney(row.amount) }}</strong></template></el-table-column>
         <el-table-column label="状态" min-width="110"><template #default="{ row }"><span class="order-status" :class="STATUS_META[row.status].class"><i v-if="STATUS_META[row.status].dot" />{{ row.status }}</span></template></el-table-column>
         <el-table-column prop="time" label="下单时间" min-width="156"><template #default="{ row }"><span class="order-time">{{ row.time }}</span></template></el-table-column>
@@ -259,6 +271,7 @@ function exportOrders() {
         <div><dt>客户</dt><dd>{{ detailOrder.customer }}</dd></div>
         <div><dt>就餐方式</dt><dd>{{ detailOrder.method }}</dd></div>
         <div><dt>关联会员</dt><dd>{{ memberName(detailOrder) }}</dd></div>
+        <div v-if="detailOrder.note"><dt>备注</dt><dd>{{ detailOrder.note }}</dd></div>
       </dl>
       <div class="order-detail-items">
         <span class="order-detail-label">商品明细</span>

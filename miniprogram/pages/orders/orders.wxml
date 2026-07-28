@@ -1,0 +1,51 @@
+<view class="container">
+  <view class="orders-header">
+    <text class="orders-title">我的订单</text>
+    <view class="refresh-btn" bindtap="loadOrders">↻</view>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="orders-empty" wx:elif="{{orders.length === 0}}">
+    <text class="empty-icon">📋</text>
+    <text class="empty-text">还没有订单</text>
+    <view class="empty-btn" bindtap="goToMenu">去点单</view>
+  </view>
+
+  <!-- 订单列表 -->
+  <view class="orders-list" wx:else>
+    <view class="order-card" wx:for="{{orders}}" wx:key="id">
+      <view class="order-header">
+        <text class="order-id">{{item.id}}</text>
+        <text class="order-status" style="color: {{item.statusColor}}">{{item.status}}</text>
+      </view>
+
+      <view class="order-items" wx:if="{{item.items && item.items.length > 0}}">
+        <view class="order-item" wx:for="{{item.items}}" wx:key="id" wx:for-item="product">
+          <text class="order-item-name">{{product.product_name}}</text>
+          <text class="order-item-qty">x{{product.quantity}}</text>
+        </view>
+      </view>
+      <view class="order-items loading-items" wx:else>
+        <text>加载明细中...</text>
+      </view>
+
+      <view class="order-footer">
+        <view class="order-meta">
+          <text class="order-method">{{item.method}}</text>
+          <text class="order-time">{{item.timeText}}</text>
+        </view>
+        <text class="order-total">¥{{item.amountText}}</text>
+      </view>
+
+      <view class="order-note" wx:if="{{item.note}}">
+        <text class="note-label">备注：</text>
+        <text class="note-text">{{item.note}}</text>
+      </view>
+    </view>
+  </view>
+</view>

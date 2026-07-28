@@ -1,0 +1,91 @@
+/* ===== 全局设计令牌（Light Bites 轻食系统） ===== */
+page {
+  /* 品牌绿 */
+  --brand: #2e7d32;
+  --brand-dark: #1b5e20;
+  --brand-050: #eef6ee;
+  --brand-100: #e2f1e1;
+  /* 强调橙（价格 / 招牌标签） */
+  --accent: #e65100;
+  --accent-050: #fff2ea;
+  --accent-100: #ffe0cc;
+  /* 文字 */
+  --ink: #1a1f1c;
+  --ink-2: #5c665f;
+  --ink-3: #9aa39d;
+  /* 表面 */
+  --bg: #f4f7f2;
+  --card: #ffffff;
+  --line: #eef1ec;
+  /* 圆角 */
+  --r-lg: 28rpx;
+  --r-md: 20rpx;
+  --r-pill: 999rpx;
+  /* 阴影 */
+  --shadow-card: 0 8rpx 24rpx rgba(31, 45, 34, 0.06);
+  --shadow-float: 0 12rpx 32rpx rgba(31, 45, 34, 0.18);
+  --shadow-brand: 0 8rpx 20rpx rgba(46, 125, 50, 0.28);
+
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+.container {
+  padding-bottom: 120rpx;
+  overflow-x: hidden;
+}
+
+/* ===== 共享卡片 / 按钮 / 标签 ===== */
+.goods-card {
+  display: flex;
+  background: var(--card);
+  border-radius: var(--r-lg);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: var(--shadow-card);
+}
+
+.btn-add {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background-color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 36rpx;
+  font-weight: bold;
+  box-shadow: var(--shadow-brand);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.btn-add:active {
+  background-color: var(--brand-dark);
+  transform: scale(0.9);
+}
+
+.tag {
+  display: inline-block;
+  padding: 6rpx 16rpx;
+  border-radius: 10rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.tag-signature {
+  background-color: var(--accent-100);
+  color: var(--accent);
+}
+
+.tag-lowcal {
+  background-color: var(--brand-100);
+  color: var(--brand);
+}
+
+.tag-soldout {
+  background-color: #e8eae7;
+  color: #9aa39d;
+}

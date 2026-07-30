@@ -136,7 +136,7 @@ export async function fetchRevenueSeries(client, storeId, rangeDays, endIsoDate 
   return buckets
 }
 
-const RANKING_COLORS = ['#087824', '#299342', '#46a05c', '#62aa72', '#7ab287']
+const RANKING_COLORS = ['#28b879', '#54a8ff', '#8b78ef', '#f3a74b', '#45c7bf']
 
 function buildRanking(items, mode) {
   const byProduct = new Map()

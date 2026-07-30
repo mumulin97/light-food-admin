@@ -42,6 +42,20 @@ function buildFullOption({ animateUpdate = false } = {}) {
   const enableMotion = props.animated
   const updateDuration = enableMotion && animateUpdate ? 720 : 0
   const initialDuration = enableMotion && !hasRendered ? 720 : 0
+  const spectrum = new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+    { offset: 0, color: '#58a8f8' },
+    { offset: 0.23, color: '#9a78ed' },
+    { offset: 0.48, color: '#35ba82' },
+    { offset: 0.72, color: '#f1ad55' },
+    { offset: 1, color: '#48c8bd' },
+  ])
+  const spectrumArea = new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+    { offset: 0, color: 'rgba(88,168,248,.24)' },
+    { offset: 0.23, color: 'rgba(154,120,237,.24)' },
+    { offset: 0.48, color: 'rgba(53,186,130,.3)' },
+    { offset: 0.72, color: 'rgba(241,173,85,.24)' },
+    { offset: 1, color: 'rgba(72,200,189,.25)' },
+  ])
 
   return {
     animation: enableMotion,
@@ -53,14 +67,23 @@ function buildFullOption({ animateUpdate = false } = {}) {
     tooltip: {
       trigger: 'axis',
       confine: true,
-      backgroundColor: '#183323',
-      borderWidth: 0,
-      padding: [8, 12],
-      textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Inter, PingFang SC, sans-serif' },
-      axisPointer: { type: 'line', lineStyle: { color: 'rgba(8,120,36,.18)', width: 1 } },
+      backgroundColor: 'rgba(218,239,246,.88)',
+      borderColor: 'rgba(255,255,255,.84)',
+      borderWidth: 1,
+      padding: [0, 0],
+      textStyle: { color: '#315963', fontSize: 12, fontFamily: 'Inter, PingFang SC, sans-serif' },
+      extraCssText: 'border-radius:16px;box-shadow:0 16px 34px rgba(45,83,101,.18),0 1px 0 rgba(255,255,255,.98) inset;backdrop-filter:blur(20px) saturate(1.2);-webkit-backdrop-filter:blur(20px) saturate(1.2);',
+      axisPointer: {
+        type: 'line',
+        lineStyle: { color: 'rgba(70,159,159,.28)', width: 1.5, type: 'dashed' },
+      },
       formatter(params) {
         const point = params[0]
-        return `${point.axisValue}<br/><strong style="font-size:14px">¥${Number(point.value).toLocaleString('zh-CN')}</strong>`
+        return `<div class="revenue-tooltip">
+          <div class="revenue-tooltip__date"><i></i><span>${point.axisValue}</span></div>
+          <strong>¥${Number(point.value).toLocaleString('zh-CN')}</strong>
+          <small>营业收入</small>
+        </div>`
       },
     },
     xAxis: {
@@ -98,20 +121,18 @@ function buildFullOption({ animateUpdate = false } = {}) {
       name: '营业收入',
       type: 'line',
       data,
-      smooth: false,
+      smooth: 0.45,
       showSymbol: true,
       symbol: 'circle',
       symbolSize: 8,
       universalTransition: enableMotion,
       animationDurationUpdate: updateDuration,
-      lineStyle: { color: '#087824', width: 4, cap: 'round', join: 'round', shadowColor: 'rgba(0,75,20,.18)', shadowBlur: 3 },
-      itemStyle: { color: '#fff', borderColor: '#087824', borderWidth: 2 },
-      emphasis: { scale: 1.5, itemStyle: { color: '#4caf50', borderColor: '#087824' } },
+      lineStyle: { color: spectrum, width: 4, cap: 'round', join: 'round', shadowColor: 'rgba(71,145,166,.25)', shadowBlur: 7 },
+      itemStyle: { color: 'rgba(255,255,255,.92)', borderColor: '#36ad82', borderWidth: 2 },
+      emphasis: { scale: 1.5, itemStyle: { color: '#fff', borderColor: '#49b995' } },
       areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(86,183,96,.34)' },
-          { offset: 1, color: 'rgba(86,183,96,.04)' },
-        ]),
+        color: spectrumArea,
+        opacity: 1,
       },
     }],
   }

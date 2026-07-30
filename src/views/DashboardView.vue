@@ -38,13 +38,13 @@ const chartState = {
 
 const rankingSets = {
   volume: [
-    ['抹茶能量碗', '842 份', 100, '#087824'], ['牛油果高纤卷', '720 份', 86, '#299342'], ['藜麦田园沙拉', '615 份', 73, '#46a05c'], ['冷萃燕麦杯', '528 份', 63, '#62aa72'], ['浆果排毒思慕雪', '412 份', 49, '#7ab287'],
+    ['抹茶能量碗', '842 份', 100, '#28b879'], ['牛油果高纤卷', '720 份', 86, '#54a8ff'], ['藜麦田园沙拉', '615 份', 73, '#8b78ef'], ['冷萃燕麦杯', '528 份', 63, '#f3a74b'], ['浆果排毒思慕雪', '412 份', 49, '#45c7bf'],
   ],
   revenue: [
-    ['牛油果高纤卷', '¥21,600', 100, '#087824'], ['抹茶能量碗', '¥20,208', 94, '#299342'], ['藜麦田园沙拉', '¥17,220', 80, '#46a05c'], ['浆果排毒思慕雪', '¥12,360', 57, '#62aa72'], ['冷萃燕麦杯', '¥10,560', 49, '#7ab287'],
+    ['牛油果高纤卷', '¥21,600', 100, '#28b879'], ['抹茶能量碗', '¥20,208', 94, '#54a8ff'], ['藜麦田园沙拉', '¥17,220', 80, '#8b78ef'], ['浆果排毒思慕雪', '¥12,360', 57, '#f3a74b'], ['冷萃燕麦杯', '¥10,560', 49, '#45c7bf'],
   ],
   growth: [
-    ['浆果排毒思慕雪', '+32.6%', 100, '#087824'], ['冷萃燕麦杯', '+24.8%', 76, '#299342'], ['抹茶能量碗', '+18.2%', 56, '#46a05c'], ['藜麦田园沙拉', '+12.5%', 38, '#62aa72'], ['牛油果高纤卷', '+8.9%', 27, '#7ab287'],
+    ['浆果排毒思慕雪', '+32.6%', 100, '#28b879'], ['冷萃燕麦杯', '+24.8%', 76, '#54a8ff'], ['抹茶能量碗', '+18.2%', 56, '#8b78ef'], ['藜麦田园沙拉', '+12.5%', 38, '#f3a74b'], ['牛油果高纤卷', '+8.9%', 27, '#45c7bf'],
   ],
 }
 
@@ -189,10 +189,14 @@ defineExpose({
 </script>
 
 <template>
-  <div class="dashboard-content" v-loading="useBackend && dashboardLoading">
+  <div
+    class="dashboard-content"
+    v-loading="useBackend && dashboardLoading"
+    element-loading-text="正在同步经营数据"
+  >
     <p v-if="useBackend && dashboardError" class="dashboard-error" role="alert">{{ dashboardError }}</p>
     <section class="page-heading">
-      <div><h1>管理概览</h1><p>欢迎回来！这是轻食点中心店的实时运营数据。</p></div>
+      <div><h1>管理概览</h1></div>
       <el-dropdown trigger="click" popper-class="date-dropdown" @command="selectDate">
         <el-button class="date-button" :aria-label="selectedDateLabel"><AppIcon name="calendar"/><span>{{ selectedDateLabel }}</span><AppIcon class="chevron" name="chevron"/></el-button>
         <template #dropdown><el-dropdown-menu><el-dropdown-item v-for="date in dateOptionsList" :key="date.value" :command="date.value" :class="{ selected: selectedDateKey === date.value }"><span>{{ date.label }}</span><small>{{ date.meta }}</small></el-dropdown-item></el-dropdown-menu></template>
@@ -200,38 +204,58 @@ defineExpose({
     </section>
 
     <section class="metrics-grid" aria-label="关键经营指标">
-      <article class="metric-card"><span class="metric-icon green"><AppIcon name="receipt"/></span><div class="metric-body"><p>今日订单数</p><strong class="metric-value">{{ currentMetrics.orders }}</strong></div><span class="trend" :class="currentMetricTrends.orders.tone">{{ currentMetricTrends.orders.label }}</span></article>
-      <article class="metric-card"><span class="metric-icon neutral"><AppIcon name="money"/></span><div class="metric-body"><p>今日总营收</p><strong class="metric-value">{{ currentMetrics.revenue }}</strong></div><span class="trend" :class="currentMetricTrends.revenue.tone">{{ currentMetricTrends.revenue.label }}</span></article>
-      <article class="metric-card"><span class="metric-icon blue"><AppIcon name="clipboard"/></span><div class="metric-body"><p>在售单品数</p><strong class="metric-value">{{ currentMetrics.products }}</strong></div><span class="trend" :class="currentMetricTrends.products.tone">{{ currentMetricTrends.products.label }}</span></article>
-      <article class="metric-card alert-card" tabindex="0" @click="emit('open-notifications')"><span class="metric-icon red"><AppIcon name="warning"/></span><div class="metric-body"><p>库存预警</p><strong class="metric-value red-text">{{ currentMetrics.alerts }}</strong></div><span class="trend" :class="currentMetricTrends.alerts.tone">{{ currentMetricTrends.alerts.label }}</span></article>
-    </section>
-
-    <section class="lower-grid">
-      <article class="panel orders-panel">
-        <div class="panel-heading"><h2>最新订单日志</h2><el-button class="view-all" text @click="emit('open-all-orders')">查看全部<AppIcon name="arrow"/></el-button></div>
-        <el-table :data="latestOrders" class="orders-table" table-layout="fixed">
-          <el-table-column prop="id" label="订单编号" min-width="92"/><el-table-column prop="customer" label="顾客姓名" min-width="82"/>
-          <el-table-column label="订单状态" min-width="88"><template #default="{ row }"><span class="status" :class="dashboardStatusClass(row.status)">{{ row.status }}</span></template></el-table-column>
-          <el-table-column label="交易金额" min-width="88" align="right"><template #default="{ row }">{{ formatOrderMoney(row.amount) }}</template></el-table-column>
-        </el-table>
+      <article class="metric-card metric-card--orders">
+        <div class="metric-card-head"><span class="metric-icon green"><AppIcon name="receipt"/></span><div class="metric-body"><p>今日订单数</p><strong class="metric-value">{{ currentMetrics.orders }}</strong></div><span class="trend" :class="currentMetricTrends.orders.tone">{{ currentMetricTrends.orders.label }}</span></div>
+        <img class="metric-visual" src="/dashboard-assets/console1-transparent.png" alt="" />
       </article>
-      <article class="efficiency-card"><div><span class="efficiency-kicker">今日厨房状态</span><h2>厨房运营效能</h2><p>您的团队今日表现优异，运营效率达到 <strong>94%</strong>。请保持！</p></div><div class="efficiency-meter"><span style="--value:94%"/></div><div class="efficiency-actions"><el-button @click="ElMessage({ message: '今日排班：前厅 5 人，后厨 7 人，配送 3 人', customClass: 'light-bites-message', duration: 2400 })">查看排班</el-button><el-button @click="ElMessage({ message: '出餐均时 8.6 分钟，较上周提升 11%', customClass: 'light-bites-message', duration: 2400 })">效率详情<AppIcon name="arrow"/></el-button></div></article>
+      <article class="metric-card metric-card--revenue">
+        <div class="metric-card-head"><span class="metric-icon neutral"><AppIcon name="money"/></span><div class="metric-body"><p>今日总营收</p><strong class="metric-value">{{ currentMetrics.revenue }}</strong></div><span class="trend" :class="currentMetricTrends.revenue.tone">{{ currentMetricTrends.revenue.label }}</span></div>
+        <img class="metric-visual" src="/dashboard-assets/console2-transparent-final.png" alt="" />
+      </article>
+      <article class="metric-card metric-card--products">
+        <div class="metric-card-head"><span class="metric-icon blue"><AppIcon name="clipboard"/></span><div class="metric-body"><p>在售单品数</p><strong class="metric-value">{{ currentMetrics.products }}</strong></div><span class="trend" :class="currentMetricTrends.products.tone">{{ currentMetricTrends.products.label }}</span></div>
+        <img class="metric-visual" src="/dashboard-assets/console3-transparent.png" alt="" />
+      </article>
+      <article class="metric-card metric-card--alerts alert-card" tabindex="0" @click="emit('open-notifications')">
+        <div class="metric-card-head"><span class="metric-icon red"><AppIcon name="warning"/></span><div class="metric-body"><p>库存预警</p><strong class="metric-value red-text">{{ currentMetrics.alerts }}</strong></div><span class="trend" :class="currentMetricTrends.alerts.tone">{{ currentMetricTrends.alerts.label }}</span></div>
+        <img class="metric-visual" src="/dashboard-assets/console4-transparent.png" alt="" />
+      </article>
     </section>
 
     <section class="analytics-grid">
       <article class="panel chart-panel">
-        <div class="panel-heading"><h2>七日营收趋势</h2><div class="chart-actions"><span class="legend"><i/>营业收入</span><el-dropdown trigger="click" popper-class="range-dropdown" @command="currentRange = Number($event)"><el-button class="range-button">最近 {{ currentRange }} 天<AppIcon name="chevron"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="range in [7,14,30]" :key="range" :command="range" :class="{ selected: currentRange === range }">最近 {{ range }} 天</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></div>
+        <div class="panel-heading"><h2>七日营收趋势</h2><div class="chart-actions"><span class="legend"><i/>营业收入</span><el-dropdown trigger="click" popper-class="range-dropdown" @command="currentRange = Number($event)"><el-button class="range-button"><span class="range-button-label">最近 {{ currentRange }} 天</span><AppIcon name="chevron"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="range in [7,14,30]" :key="range" :command="range" :class="{ selected: currentRange === range }">最近 {{ range }} 天</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></div>
         <div class="chart-wrap"><RevenueChart :values="chartValues" :labels="chartLabels" :animated="motionEnabled" /></div>
       </article>
 
       <article class="panel ranking-panel">
         <div class="panel-heading"><h2>畅销排行榜 Top 5</h2><el-dropdown trigger="click" popper-class="ranking-dropdown" @command="rankingMode = $event"><el-button class="more-button" aria-label="排行设置"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="volume" :class="{ selected: rankingMode === 'volume' }">按销量排序</el-dropdown-item><el-dropdown-item command="revenue" :class="{ selected: rankingMode === 'revenue' }">按营收排序</el-dropdown-item><el-dropdown-item command="growth" :class="{ selected: rankingMode === 'growth' }">按增长排序</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div>
-        <div v-if="hasRankingData" class="ranking-list"><div v-for="([name,value,width,color]) in currentRanking" :key="name" class="ranking-item"><div class="ranking-copy"><strong>{{ name }}</strong><span>{{ value }}</span></div><div class="rank-track"><div class="rank-bar" :style="{ '--bar-width': `${width}%`, '--bar-color': color }"/></div></div></div>
+        <div v-if="hasRankingData" class="ranking-list"><div v-for="([name,value,width,color]) in currentRanking" :key="name" class="ranking-item" :style="{ '--rank-color': color }"><div class="ranking-copy"><strong>{{ name }}</strong><span>{{ value }}</span></div><div class="rank-track"><div class="rank-bar" :style="{ '--bar-width': `${width}%` }"/></div></div></div>
         <div v-else class="ranking-empty" role="status">
+          <span class="ranking-prism" aria-hidden="true"><i/><i/><i/><i/><i/></span>
           <AppIcon name="box"/>
           <p>暂无畅销数据</p>
           <small>当前日期或门店还没有可统计的订单，请切换日期、门店或稍后再看。</small>
         </div>
+      </article>
+    </section>
+
+    <section class="lower-grid">
+      <article class="panel orders-panel">
+        <div class="panel-heading"><h2>最新订单日志</h2><el-button class="view-all" text @click="emit('open-all-orders')">查看全部<AppIcon name="arrow"/></el-button></div>
+        <el-table :data="latestOrders" class="orders-table" table-layout="fixed" empty-text="暂无订单数据">
+          <el-table-column prop="id" label="订单编号" min-width="92"><template #default="{ row }"><span class="order-log-id">{{ row.id }}</span></template></el-table-column>
+          <el-table-column prop="customer" label="顾客姓名" min-width="82"><template #default="{ row }"><span class="order-log-customer">{{ row.customer }}</span></template></el-table-column>
+          <el-table-column label="订单状态" min-width="88"><template #default="{ row }"><span class="status" :class="dashboardStatusClass(row.status)">{{ row.status }}</span></template></el-table-column>
+          <el-table-column label="交易金额" min-width="88" align="right"><template #default="{ row }"><strong class="order-log-amount">{{ formatOrderMoney(row.amount) }}</strong></template></el-table-column>
+        </el-table>
+        <img class="order-receipts-art" src="/dashboard-assets/order-receipts-transparent.png" alt="" aria-hidden="true" />
+      </article>
+      <article class="efficiency-card">
+        <img class="kitchen-tools-art" src="/dashboard-assets/kitchen-tools-transparent.png" alt="" aria-hidden="true" />
+        <div><span class="efficiency-kicker">今日厨房状态</span><h2>厨房运营效能</h2><p>您的团队今日表现优异，运营效率达到 <strong>94%</strong>。请保持！</p></div>
+        <div class="efficiency-meter"><span style="--value:94%"/></div>
+        <div class="efficiency-actions"><el-button @click="ElMessage({ message: '今日排班：前厅 5 人 · 后厨 7 人 · 配送 3 人', customClass: 'light-bites-message dashboard-glass-message', duration: 2400 })">查看排班</el-button><el-button @click="ElMessage({ message: '出餐均时 8.6 分钟 · 较上周提升 11%', customClass: 'light-bites-message dashboard-glass-message', duration: 2400 })">效率详情<AppIcon name="arrow"/></el-button></div>
       </article>
     </section>
   </div>

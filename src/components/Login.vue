@@ -76,15 +76,15 @@ function forgot() {
 
     <div class="login-body">
       <div class="login-card">
-        <div class="brand-lockup">
-          <span class="brand-emblem">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v6a2 2 0 0 0 2 2 2 2 0 0 0 2-2V3M10 11v10M17 3c-1.6 0-2.8 2-2.8 4.6S15.4 12 17 12v9"/></svg>
+        <div class="login-brand">
+          <span class="login-kicker">猴猴轻食园</span>
+          <h1 class="card-title">后台管理系统</h1>
+          <span class="login-brand-line" aria-hidden="true">
+            <i />
+            <img src="/logo.png" alt="" />
+            <i />
           </span>
-          <span class="brand-text"><strong>轻食点</strong><small>后台管理系统</small></span>
         </div>
-
-        <h1 class="card-title">后台管理系统</h1>
-        <p class="card-subtitle">{{ useBackend ? '使用 Supabase 账号登录' : '欢迎回来，请登录您的账户' }}</p>
 
         <form class="login-form" @submit.prevent="submit">
           <div class="field">
@@ -118,25 +118,10 @@ function forgot() {
           </el-button>
         </form>
       </div>
-
-      <div class="login-hero-text">
-        <h2><span class="line-dark">猴猴美食总动员</span><span class="line-green">后台管理</span></h2>
-        <p class="hero-sub">香香香，好吃好吃超好吃</p>
-        <div class="hero-badges">
-          <span class="hero-badge">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.4 3 8.5 7 10 4-1.5 7-5.6 7-10V6l-7-3ZM9 12l2 2 4-4"/></svg>
-            超级保密
-          </span>
-          <span class="hero-badge">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
-            超快速度
-          </span>
-        </div>
-      </div>
     </div>
 
     <footer class="login-footer">
-      <span>© 2024 Light Bites Catering Management. All rights reserved.</span>
+      <span>© 2026 Houhou Light Food Management. All rights reserved.</span>
       <nav><button type="button" @click="forgot">隐私政策</button><button type="button" @click="forgot">服务条款</button><button type="button" @click="forgot">联系支持</button></nav>
     </footer>
   </div>

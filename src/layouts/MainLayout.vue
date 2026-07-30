@@ -143,8 +143,8 @@ onMounted(() => {
   if (useBackend) loadNotifications()
 })
 
-function success(message) {
-  ElMessage({ message, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+function success(message, customClass = 'light-bites-message') {
+  ElMessage({ message, type: 'success', customClass, duration: 2400 })
 }
 
 function onStoresChanged() {
@@ -274,10 +274,20 @@ async function createOrder() {
         priceByProduct: productPriceMap.value,
       })
       dashboard.selectedDateIso.value = localIsoDate()
-      await dashboard.refresh()
       Object.assign(orderForm, { customer: '', memberId: null, product: '抹茶能量碗', quantity: 1, method: '堂食', note: '' })
       orderDialogVisible.value = false
-      success(`订单 ${id} 已创建，可在控制台与订单管理中查看`)
+      success(
+        `订单 ${id} 已创建 · 可在控制台与订单管理中查看`,
+        'light-bites-message dashboard-glass-message',
+      )
+      dashboard.refresh().catch((refreshError) => {
+        ElMessage({
+          message: refreshError?.message || '订单已创建，经营数据稍后自动刷新',
+          type: 'warning',
+          customClass: 'light-bites-message',
+          duration: 2800,
+        })
+      })
     } catch (e) {
       ElMessage({ message: e.message || '创建订单失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
     }
@@ -294,7 +304,10 @@ async function createOrder() {
     })
     Object.assign(orderForm, { customer: '', memberId: null, product: '抹茶能量碗', quantity: 1, method: '堂食', note: '' })
     orderDialogVisible.value = false
-    success(`订单 ${id} 已创建并进入待处理队列`)
+    success(
+      `订单 ${id} 已创建 · 已进入待处理队列`,
+      'light-bites-message dashboard-glass-message',
+    )
   } catch (e) {
     ElMessage({ message: e.message || '创建订单失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
   }
@@ -319,9 +332,51 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'dashboard-shell': isDashboard }">
     <aside id="sidebar" class="sidebar" :class="{ open: sidebarOpen, collapsed: sidebarCollapsed }" aria-label="主要导航">
-      <div class="brand"><div class="brand-mark"><img src="/logo.png" alt="猴猴美食园" /></div><div class="brand-text"><strong>猴猴美食园</strong><small>餐饮管理后台</small></div></div>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg class="houhou-brand-icon" viewBox="0 0 64 64">
+            <defs>
+              <linearGradient id="houhouFur" x1="17" y1="7" x2="45" y2="42" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#B87847"/>
+                <stop offset="1" stop-color="#75432B"/>
+              </linearGradient>
+              <linearGradient id="houhouFace" x1="22" y1="15" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#FFF3D7"/>
+                <stop offset="1" stop-color="#F2C987"/>
+              </linearGradient>
+              <linearGradient id="houhouBowl" x1="13" y1="41" x2="51" y2="61" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#54C79E"/>
+                <stop offset=".55" stop-color="#2AA57F"/>
+                <stop offset="1" stop-color="#19745F"/>
+              </linearGradient>
+            </defs>
+            <circle cx="14.5" cy="27" r="7.5" fill="url(#houhouFur)"/>
+            <circle cx="49.5" cy="27" r="7.5" fill="url(#houhouFur)"/>
+            <circle cx="32" cy="26.5" r="19.5" fill="url(#houhouFur)"/>
+            <path d="M32 15.2c-4.8-5.4-13.4-1.2-12.6 6.6.3 3.1 1.9 5.1 4 6.6-1.6 6.4 2.8 12.1 8.6 12.1s10.2-5.7 8.6-12.1c2.1-1.5 3.7-3.5 4-6.6.8-7.8-7.8-12-12.6-6.6Z" fill="url(#houhouFace)"/>
+            <ellipse cx="26.3" cy="26" rx="2" ry="2.5" fill="#35231D"/>
+            <ellipse cx="37.7" cy="26" rx="2" ry="2.5" fill="#35231D"/>
+            <circle cx="25.7" cy="25.2" r=".65" fill="white"/>
+            <circle cx="37.1" cy="25.2" r=".65" fill="white"/>
+            <path d="M29.8 31.1c1.2-1 3.2-1 4.4 0-.3 1.6-1 2.4-2.2 2.4s-1.9-.8-2.2-2.4Z" fill="#98523E"/>
+            <path d="M28.6 35.2c2 1.7 4.8 1.7 6.8 0" fill="none" stroke="#6E3D30" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M13 42.5h38c-1.3 11.3-7.8 17-19 17s-17.7-5.7-19-17Z" fill="url(#houhouBowl)"/>
+            <path d="M11.5 42.7c0-2.4 1.9-4.3 4.3-4.3h32.4c2.4 0 4.3 1.9 4.3 4.3H11.5Z" fill="#E7FFF4"/>
+            <path d="M18.2 39.2c-2.3-4.9 1.1-8.3 5.8-7.6.2 4.2-1.7 6.8-5.8 7.6Z" fill="#58BE75"/>
+            <path d="M25 39.2c-.4-5.8 4.4-8.5 8.5-6.3-1.1 4.2-3.8 6.4-8.5 6.3Z" fill="#8BD36B"/>
+            <path d="M34.5 39.2c1-5.5 6-7 9.3-3.9-2 3.6-5 4.9-9.3 3.9Z" fill="#3EAE83"/>
+            <circle cx="23.2" cy="39.4" r="2.1" fill="#F29A69"/>
+            <circle cx="40.9" cy="39.5" r="1.9" fill="#F2C85B"/>
+            <path d="M21 50.2c6.7 2.8 15.3 2.8 22 0" fill="none" stroke="rgba(255,255,255,.58)" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <strong><span>猴猴</span><b>美食园</b></strong>
+          <small><i aria-hidden="true"/>餐饮管理后台</small>
+        </div>
+      </div>
       <button class="sidebar-toggle" aria-label="切换侧边栏" @click="sidebarCollapsed = !sidebarCollapsed"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
       <nav class="nav-list">
         <RouterLink
@@ -391,8 +446,9 @@ onBeforeUnmount(() => {
   </div>
 
   <el-drawer v-model="orderDialogVisible" class="order-form-drawer" size="540px" :with-header="false" append-to-body :close-on-click-modal="!orderCreating" :close-on-press-escape="!orderCreating">
-    <div class="modal-header"><div><span class="eyebrow">快速创建</span><h2>新建订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="orderDialogVisible = false"><AppIcon name="close"/></el-button></div>
-    <div v-loading="orderFormLoading">
+    <div class="modal-header"><div><h2>新建订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="orderDialogVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="order-form-content">
+      <div v-if="orderFormLoading" class="order-form-loading-status" role="status"><i aria-hidden="true"/><span>正在同步商品与会员数据</span></div>
       <el-form label-position="top" class="order-create-form" @submit.prevent="createOrder">
         <div class="form-row order-form-row-member">
           <el-form-item label="顾客姓名"><el-input v-model="orderForm.customer" placeholder="输入顾客姓名"/></el-form-item>
@@ -408,7 +464,7 @@ onBeforeUnmount(() => {
           </el-select>
         </el-form-item>
         <div class="form-row">
-          <el-form-item label="数量"><div class="quantity-stepper"><el-button class="quantity-step-button" aria-label="减少数量" :disabled="orderForm.quantity <= 1" @click="decreaseQuantity">−</el-button><el-input-number v-model="orderForm.quantity" :min="1" :max="20" :controls="false" aria-label="订单数量"/><el-button class="quantity-step-button" aria-label="增加数量" :disabled="orderForm.quantity >= 20" @click="increaseQuantity">+</el-button></div></el-form-item>
+          <el-form-item label="数量"><div class="quantity-stepper"><el-button class="quantity-step-button" aria-label="减少数量" :disabled="orderForm.quantity <= 1" @click="decreaseQuantity"><i class="quantity-glyph quantity-glyph--minus" aria-hidden="true"/></el-button><el-input-number v-model="orderForm.quantity" :min="1" :max="20" :controls="false" aria-label="订单数量"/><el-button class="quantity-step-button" aria-label="增加数量" :disabled="orderForm.quantity >= 20" @click="increaseQuantity"><i class="quantity-glyph quantity-glyph--plus" aria-hidden="true"/></el-button></div></el-form-item>
           <el-form-item label="就餐方式">
             <el-select v-model="orderForm.method" :teleported="true" popper-class="order-form-popper" :popper-options="{ strategy: 'fixed' }">
               <el-option v-for="method in ['堂食','外带','外卖']" :key="method" :label="method" :value="method"/>
@@ -422,12 +478,12 @@ onBeforeUnmount(() => {
   </el-drawer>
 
   <el-drawer v-model="settingsVisible" class="settings-drawer" size="430px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">偏好设置</span><h2>界面设置</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="settingsVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header"><div><h2>界面设置</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="settingsVisible = false"><AppIcon name="close"/></el-button></div>
     <div class="settings-list"><label class="setting-row"><span><strong>紧凑布局</strong><small>减少卡片间距，展示更多数据</small></span><el-switch v-model="compactMode"/></label><label class="setting-row"><span><strong>数据动画</strong><small>切换筛选项时启用过渡效果</small></span><el-switch v-model="motionEnabled"/></label><label class="setting-row"><span><strong>运营提醒</strong><small>库存与订单异常时显示红点</small></span><el-switch v-model="alertsEnabled"/></label></div>
   </el-drawer>
 
   <el-drawer v-model="ordersVisible" class="orders-drawer" size="520px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">订单中心</span><h2>今日全部订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="ordersVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header"><div><h2>今日全部订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="ordersVisible = false"><AppIcon name="close"/></el-button></div>
     <div class="drawer-filter"><el-button v-for="filter in ['全部','待处理','制作中','待取餐','已完成']" :key="filter" :class="{ active: orderFilter === filter }" @click="orderFilter = filter">{{ filter }}</el-button></div>
     <div class="drawer-orders"><article v-for="order in filteredDrawerOrders" :key="order.id" class="drawer-order"><div><strong>{{ order.id }} · {{ order.customer }}</strong><small>{{ formatOrderItems(order.items) }}</small><small><span class="status" :class="dashboardStatusClass(order.status)">{{ order.status }}</span></small></div><span class="amount">{{ formatOrderMoney(order.amount) }}</span></article></div>
   </el-drawer>

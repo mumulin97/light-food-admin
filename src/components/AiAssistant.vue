@@ -158,7 +158,14 @@ function resetConversation() {
 
 <template>
   <button class="ai-fab" type="button" aria-label="打开 AI 经营助手" @click="visible = true">
-    <span class="ai-fab-mark">AI</span>
+    <span class="ai-fab-mark" aria-hidden="true">
+      <svg class="ai-glyph" viewBox="0 0 32 32">
+        <path class="ai-glyph-orbit" d="M5.4 17.2c.8-6.3 6.6-11.1 12.8-10.5 5.1.5 8.8 4.1 9.3 8.8"/>
+        <path class="ai-glyph-core" d="m16 8.2 2.1 5.7 5.7 2.1-5.7 2.1L16 23.8l-2.1-5.7L8.2 16l5.7-2.1L16 8.2Z"/>
+        <circle class="ai-glyph-node" cx="6" cy="20.7" r="1.7"/>
+        <circle class="ai-glyph-node" cx="26.1" cy="11.1" r="1.35"/>
+      </svg>
+    </span>
     <span>经营助手</span>
     <i class="ai-fab-dot" />
   </button>
@@ -166,7 +173,14 @@ function resetConversation() {
   <el-drawer v-model="visible" class="ai-assistant-drawer" size="min(460px, 100vw)" :with-header="false" append-to-body>
     <div class="ai-assistant-shell">
       <header class="ai-assistant-header">
-        <div class="ai-assistant-avatar">AI</div>
+        <div class="ai-assistant-avatar" aria-hidden="true">
+          <svg class="ai-glyph" viewBox="0 0 32 32">
+            <path class="ai-glyph-orbit" d="M5.4 17.2c.8-6.3 6.6-11.1 12.8-10.5 5.1.5 8.8 4.1 9.3 8.8"/>
+            <path class="ai-glyph-core" d="m16 8.2 2.1 5.7 5.7 2.1-5.7 2.1L16 23.8l-2.1-5.7L8.2 16l5.7-2.1L16 8.2Z"/>
+            <circle class="ai-glyph-node" cx="6" cy="20.7" r="1.7"/>
+            <circle class="ai-glyph-node" cx="26.1" cy="11.1" r="1.35"/>
+          </svg>
+        </div>
         <div class="ai-assistant-title">
           <strong>轻食经营助手</strong>
           <span>数据驱动 · 由 Coze 提供分析能力</span>

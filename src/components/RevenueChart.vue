@@ -33,7 +33,14 @@ function seriesValues() {
 
 function yAxisMax(values) {
   const peak = Math.max(...values, 0)
-  return peak <= 0 ? 1000 : Math.ceil(peak / 1000) * 1000
+  if (peak <= 0) return 100
+
+  const rawStep = peak / 4
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep))
+  const normalized = rawStep / magnitude
+  const niceFactor = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10
+  const step = niceFactor * magnitude
+  return Math.ceil(peak / step) * step
 }
 
 function buildFullOption({ animateUpdate = false } = {}) {

@@ -152,7 +152,7 @@ function openInventory(store) {
   >
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="store-page-heading">
-      <div><h1>门店管理</h1></div>
+      <div><h1>门店管理</h1><p>统一管理门店网络、营业状态与区域协作信息。</p></div>
       <el-button class="add-store-button" @click="openAdd"><AppIcon name="plus"/>添加新门店</el-button>
     </section>
 

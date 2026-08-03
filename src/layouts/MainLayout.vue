@@ -436,7 +436,7 @@ onBeforeUnmount(() => {
           :to="item.path"
           custom
         >
-          <button type="button" class="nav-item" :class="{ active: isNavActive(item) }" @click="navigate"><AppIcon :name="item.icon"/><span class="nav-label">{{ item.label }}</span></button>
+          <button type="button" class="nav-item" :class="{ active: isNavActive(item), 'nav-group-start': item.name === 'orders' || item.name === 'employees' }" @click="navigate"><AppIcon :name="item.icon"/><span class="nav-label">{{ item.label }}</span></button>
         </RouterLink>
       </nav>
       <el-button class="new-order-btn" @click="openNewOrderDialog"><AppIcon name="plus"/><span class="btn-label">新建订单</span></el-button>
@@ -496,7 +496,7 @@ onBeforeUnmount(() => {
   </div>
 
   <el-drawer v-model="orderDialogVisible" class="order-form-drawer" size="540px" :with-header="false" append-to-body :close-on-click-modal="!orderCreating" :close-on-press-escape="!orderCreating">
-    <div class="modal-header"><div><h2>新建订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="orderDialogVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header"><div><span class="eyebrow">订单档案</span><h2>新建订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="orderDialogVisible = false"><AppIcon name="close"/></el-button></div>
     <div class="order-form-content">
       <div v-if="orderFormLoading" class="order-form-loading-status" role="status"><i aria-hidden="true"/><span>正在同步商品与会员数据</span></div>
       <el-form label-position="top" class="order-create-form" @submit.prevent="createOrder">
@@ -529,12 +529,12 @@ onBeforeUnmount(() => {
   </el-drawer>
 
   <el-drawer v-model="settingsVisible" class="settings-drawer" size="430px" :with-header="false">
-    <div class="modal-header"><div><h2>界面设置</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="settingsVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header"><div><span class="eyebrow">显示偏好</span><h2>界面设置</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="settingsVisible = false"><AppIcon name="close"/></el-button></div>
     <div class="settings-list"><label class="setting-row"><span><strong>紧凑布局</strong><small>减少卡片间距，展示更多数据</small></span><el-switch v-model="compactMode"/></label><label class="setting-row"><span><strong>数据动画</strong><small>切换筛选项时启用过渡效果</small></span><el-switch v-model="motionEnabled"/></label><label class="setting-row"><span><strong>运营提醒</strong><small>库存与订单异常时显示红点</small></span><el-switch v-model="alertsEnabled"/></label></div>
   </el-drawer>
 
   <el-drawer v-model="ordersVisible" class="orders-drawer" size="520px" :with-header="false">
-    <div class="modal-header"><div><h2>今日全部订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="ordersVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header"><div><span class="eyebrow">订单概览</span><h2>今日全部订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="ordersVisible = false"><AppIcon name="close"/></el-button></div>
     <div class="drawer-filter"><el-button v-for="filter in ['全部','待处理','制作中','待取餐','已完成']" :key="filter" :class="{ active: orderFilter === filter }" @click="orderFilter = filter">{{ filter }}</el-button></div>
     <div class="drawer-orders"><article v-for="order in filteredDrawerOrders" :key="order.id" class="drawer-order"><div><strong>{{ order.id }} · {{ order.customer }}</strong><small>{{ formatOrderItems(order.items) }}</small><small><span class="status" :class="dashboardStatusClass(order.status)">{{ order.status }}</span></small></div><span class="amount">{{ formatOrderMoney(order.amount) }}</span></article></div>
   </el-drawer>

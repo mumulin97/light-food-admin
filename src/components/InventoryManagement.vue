@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
@@ -11,10 +12,14 @@ import {
   updateIngredientStock,
 } from '../services/inventoryApi'
 import { inventoryStore, stockStatus, formatStock, receivePurchase, upsertIngredients } from '../stores/inventory'
+import { replaceSuppliers, supplierStore } from '../stores/suppliers'
+import { fetchSuppliers } from '../services/suppliersApi'
 
 const props = defineProps({
   query: { type: String, default: '' },
 })
+
+const route = useRoute()
 
 const useBackend = isSupabaseConfigured()
 const loading = ref(false)
@@ -31,7 +36,7 @@ const activeSupplier = ref('所有供应商')
 const invPage = ref(1)
 
 const addVisible = ref(false)
-const addForm = reactive({ emoji: '🥗', name: '', sku: '', category: '蔬菜', price: 0, unit: 'kg', stock: 0, threshold: 0, supplier: '鲜农源配送' })
+const addForm = reactive({ emoji: '🥗', name: '', sku: '', category: '蔬菜', price: 0, unit: 'kg', stock: 0, threshold: 0, supplier: '待指定' })
 
 const stockVisible = ref(false)
 const stockTarget = ref(null)
@@ -39,7 +44,10 @@ const stockForm = reactive({ mode: 'in', amount: 0 })
 
 const purchaseVisible = ref(false)
 
-const suppliers = computed(() => ['所有供应商', ...new Set(inventoryStore.ingredients.map(item => item.supplier))])
+const suppliers = computed(() => ['所有供应商', ...new Set([
+  ...supplierStore.suppliers.filter(item => item.status === '激活').map(item => item.name),
+  ...inventoryStore.ingredients.map(item => item.supplier),
+])])
 
 const filteredIngredients = computed(() => {
   const keyword = props.query.trim().toLowerCase()
@@ -73,6 +81,9 @@ const restockList = computed(() => inventoryStore.ingredients
     return { ...item, suggest, subtotal: suggest * item.price }
   }))
 const restockTotal = computed(() => restockList.value.reduce((sum, item) => sum + item.subtotal, 0))
+const todayLabel = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric', month: 'long', day: 'numeric',
+}).format(new Date())
 
 watch([activeCategory, activeSupplier, () => props.query], () => { invPage.value = 1 })
 
@@ -81,7 +92,8 @@ async function loadInventory() {
   loading.value = true
   loadError.value = ''
   try {
-    await syncInventoryStore(supabase)
+    const [supplierList] = await Promise.all([fetchSuppliers(supabase), syncInventoryStore(supabase)])
+    replaceSuppliers(supplierList)
   } catch (e) {
     loadError.value = e.message || '加载原料失败'
     ElMessage({ message: loadError.value, type: 'error', customClass: 'light-bites-message', duration: 3200 })
@@ -92,12 +104,20 @@ async function loadInventory() {
 
 onMounted(loadInventory)
 
+watch(
+  () => route.query.supplier,
+  supplier => {
+    if (typeof supplier === 'string' && supplier) activeSupplier.value = supplier
+  },
+  { immediate: true },
+)
+
 function formatMoney(value) {
   return `¥${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function openAdd() {
-  Object.assign(addForm, { emoji: '🥗', name: '', sku: '', category: '蔬菜', price: 0, unit: 'kg', stock: 0, threshold: 0, supplier: '鲜农源配送' })
+  Object.assign(addForm, { emoji: '🥗', name: '', sku: '', category: '蔬菜', price: 0, unit: 'kg', stock: 0, threshold: 0, supplier: suppliers.value.find(item => item !== '所有供应商') || '待指定' })
   addVisible.value = true
 }
 
@@ -287,20 +307,20 @@ function exportIngredients() {
 </script>
 
 <template>
-  <div class="inventory-content" v-loading="useBackend && loading">
+  <div class="inventory-content" v-loading="useBackend && loading" element-loading-text="正在同步原料库存">
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="module-page-heading">
       <div><span class="module-kicker">供应链中心</span><h1>原料库存</h1><p>掌握原料余量、采购成本与补货节奏。</p></div>
-      <span class="module-live-status"><i />库存数据已同步</span>
+      <el-button class="product-date-button inventory-date-button" :aria-label="todayLabel"><AppIcon name="calendar"/><span>{{ todayLabel }}</span><AppIcon class="chevron" name="chevron"/></el-button>
     </section>
     <section class="inv-metrics" aria-label="库存概况">
-      <article class="inv-card accent-green"><p>原料总数</p><div class="inv-figure-row"><strong>{{ ingredientTotalDisplay }}</strong><span class="inv-trend"><AppIcon name="arrow" />+5</span></div></article>
-      <article class="inv-card accent-red"><p>库存预警</p><div class="inv-figure-row"><strong class="danger">12</strong><span class="inv-need">需采购</span></div></article>
-      <article class="inv-card accent-dark"><p>今日入库</p><div class="inv-figure-row"><strong>420kg</strong><span class="inv-sub">8 条记录</span></div></article>
+      <article class="inv-card accent-green"><p>原料总数</p><div class="inv-figure-row"><strong>{{ ingredientTotalDisplay }}</strong><span class="inv-trend"><AppIcon name="arrow" />+5</span></div><span class="inv-produce-art" aria-hidden="true">🥦🥕</span></article>
+      <article class="inv-card accent-red"><p>库存预警</p><div class="inv-figure-row"><strong class="danger">12</strong><span class="inv-need">需采购</span></div><img class="inv-card-art inv-card-art--alert" src="/dashboard-assets/inventory-alert-siren.png" alt="" aria-hidden="true"/></article>
+      <article class="inv-card accent-dark"><p>今日入库</p><div class="inv-figure-row"><strong>420kg</strong></div><span class="inv-sub">8 条记录</span><img class="inv-card-art inv-card-art--inbound" src="/dashboard-assets/console1-transparent.png" alt="" aria-hidden="true"/></article>
       <article class="inv-card inv-suggest">
-        <AppIcon class="inv-suggest-bg" name="cart" />
-        <div><p>智能补货建议</p><small>基于近 7 天消耗量，建议立即补货蔬菜及禽肉类原料。</small></div>
-        <el-button class="inv-suggest-button" @click="generatePurchase">生成采购单</el-button>
+        <img class="inv-purchase-art" src="/dashboard-assets/order-receipts-transparent.png" alt="" aria-hidden="true"/>
+        <div><small>智能补货建议</small><p>生成采购单</p></div>
+        <el-button class="inv-suggest-button" circle aria-label="生成采购单" @click="generatePurchase"><AppIcon name="cart"/></el-button>
       </article>
     </section>
 

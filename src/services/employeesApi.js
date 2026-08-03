@@ -55,6 +55,7 @@ export function mapLogRow(row) {
     target: row.target,
     ip: row.ip,
     time,
+    createdAt: row.created_at,
     status: row.status,
   }
 }

@@ -18,9 +18,12 @@ const emit = defineEmits(['products-changed'])
 const useBackend = isSupabaseConfigured()
 
 const seedProducts = [
-  ['夏日田园沙拉', '店长推荐', '沙拉类', 12.5, 42, '份', 320, 12, 24, true, '🥗'],
-  ['藜麦能量碗', '套餐优惠', '轻食碗', 15, 8, '份', 450, 28, 35, true, '🥣'],
-  ['清新青柠昔', '夏日必备', '营养昔', 8.5, 56, '瓶', 180, 2, 38, true, '🥤'],
+  ['抹茶能量碗', '招牌', '轻食碗', 45, 32, '份', 450, 28, 35, true, '🍵'],
+  ['牛油果意仔卷', '高人气', '轻食碗', 36, 28, '份', 360, 18, 29, true, '🥑'],
+  ['藜麦田园沙拉', '低卡', '沙拉类', 34, 24, '份', 340, 16, 31, true, '🥗'],
+  ['冷萃蔬菜杯', '清爽', '营养昔', 28, 40, '杯', 280, 8, 38, true, '🥤'],
+  ['浆果排毒思慕雪', '抗氧化', '营养昔', 22, 18, '瓶', 220, 4, 36, true, '🫐'],
+  ['轻盈双人套餐', '营养悦享', '轻食碗', 68, 15, '份', 520, 34, 48, true, '🍱'],
 ].map(([name, tag, category, price, stock, unit, calories, protein, carbs, enabled, emoji], index) => ({
   id: index + 1, name, tag, category, price, stock, unit, calories, protein, carbs, enabled, emoji,
 }))
@@ -68,6 +71,9 @@ const rangeText = computed(() => {
 })
 
 const lowStockCount = computed(() => products.value.filter(item => item.stock <= 8 && item.stock > 0).length)
+const todayLabel = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric', month: 'long', day: 'numeric',
+}).format(new Date())
 
 watch([activeCategory, () => stockFilters.inStock, () => stockFilters.outOfStock, () => props.query], () => { currentPage.value = 1 })
 
@@ -202,11 +208,14 @@ function showLowStock() {
 </script>
 
 <template>
-  <div class="product-catalog-content" v-loading="useBackend && loading">
+  <div class="product-catalog-content" v-loading="useBackend && loading" element-loading-text="正在同步产品目录">
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}（若提示缺少列，请执行 supabase/migrations/004_products_catalog.sql）</p>
     <section class="product-page-heading">
       <div><h1>菜品管理</h1><p>管理您的菜单项、营养成分和库存状态。</p></div>
-      <el-button class="add-product-button" @click="openAdd"><AppIcon name="plus"/>添加菜品</el-button>
+      <div class="product-heading-actions">
+        <el-button class="product-date-button" :aria-label="todayLabel"><AppIcon name="calendar"/><span>{{ todayLabel }}</span><AppIcon class="chevron" name="chevron"/></el-button>
+        <el-button class="add-product-button" @click="openAdd"><AppIcon name="plus"/>添加菜品</el-button>
+      </div>
     </section>
 
     <section class="catalog-layout">
@@ -216,16 +225,16 @@ function showLowStock() {
           <button v-for="([label,count,icon]) in categories" :key="label" :class="{ active: activeCategory === label }" @click="activeCategory = label"><span><AppIcon :name="icon"/>{{ label }}</span><b>{{ count }}</b></button>
         </div>
         <div class="catalog-stock-filter"><h3>库存状态</h3><label><input v-model="stockFilters.inStock" type="checkbox"/><span>有货中</span><b>{{ products.filter(item => item.stock > 0).length }}</b></label><label><input v-model="stockFilters.outOfStock" type="checkbox"/><span>已售罄</span><b>{{ products.filter(item => item.stock === 0).length }}</b></label></div>
-        <article class="catalog-alert-card"><span class="catalog-alert-icon"><AppIcon name="warning"/></span><h3>库存预警</h3><p>有 {{ lowStockCount }} 个项目库存严重不足，请立即检查并补货。</p><el-button @click="showLowStock">查看缺货详情</el-button></article>
+        <article class="catalog-alert-card"><img class="catalog-alert-siren" src="/dashboard-assets/inventory-alert-siren.png" alt="" aria-hidden="true"/><span class="catalog-alert-icon"><AppIcon name="warning"/></span><h3>库存预警</h3><p>有 {{ lowStockCount }} 个项目库存严重不足，请立即检查并补货。</p><el-button @click="showLowStock">查看缺货详情</el-button></article>
       </aside>
 
       <div class="catalog-table-card">
         <el-table :data="pageProducts" class="catalog-table" table-layout="fixed" empty-text="暂无符合条件的菜品">
           <el-table-column label="菜品" min-width="190"><template #default="{ row }"><div class="catalog-product-cell"><span class="catalog-product-thumb">{{ row.emoji }}</span><span><strong>{{ row.name }}</strong><small>{{ row.tag }}</small></span></div></template></el-table-column>
           <el-table-column prop="category" label="类别" min-width="82"/>
-          <el-table-column label="单价" width="72"><template #default="{ row }"><strong class="catalog-price">¥{{ row.price.toFixed(2) }}</strong></template></el-table-column>
-          <el-table-column label="库存" width="70"><template #default="{ row }"><span class="catalog-stock" :class="{ low: row.stock <= 8 }"><AppIcon v-if="row.stock <= 8 && row.stock > 0" name="warning"/>{{ row.stock }} {{ row.unit }}</span></template></el-table-column>
-          <el-table-column label="热量" width="68"><template #default="{ row }"><span class="catalog-calories">{{ row.calories }}<small>kcal</small></span></template></el-table-column>
+          <el-table-column label="单价" width="88"><template #default="{ row }"><strong class="catalog-price">¥{{ row.price.toFixed(2) }}</strong></template></el-table-column>
+          <el-table-column label="库存" width="80"><template #default="{ row }"><span class="catalog-stock" :class="{ low: row.stock <= 8 }"><AppIcon v-if="row.stock <= 8 && row.stock > 0" name="warning"/>{{ row.stock }} {{ row.unit }}</span></template></el-table-column>
+          <el-table-column label="热量" width="74"><template #default="{ row }"><span class="catalog-calories">{{ row.calories }}<small>kcal</small></span></template></el-table-column>
           <el-table-column label="状态" width="60" align="center"><template #default="{ row }"><el-switch :model-value="row.enabled" :disabled="row.stock === 0" aria-label="菜品上下架" @change="toggleProduct(row, $event)"/></template></el-table-column>
           <el-table-column label="操作" width="72" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><el-dropdown class="table-op-dropdown" trigger="click" popper-class="table-action-menu" @command="handleAction($event,row)"><el-button class="table-more-button" circle aria-label="菜品操作"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="edit">编辑菜品</el-dropdown-item><el-dropdown-item command="stock">快速补货 +10</el-dropdown-item><el-dropdown-item command="duplicate">创建副本</el-dropdown-item></el-dropdown-menu></template></el-dropdown></template></el-table-column>
         </el-table>

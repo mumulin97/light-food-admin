@@ -68,3 +68,13 @@ export async function bulkAdjustStock(client, rows) {
     await updateIngredientStock(client, id, stock)
   }
 }
+
+// 供应商名称目前是原料表中的业务关联键；档案改名时同步更新，避免供应链断链。
+export async function renameIngredientSupplier(client, previousName, nextName) {
+  if (!previousName || previousName === nextName) return
+  const { error } = await client
+    .from('ingredients')
+    .update({ supplier_name: nextName })
+    .eq('supplier_name', previousName)
+  if (error) throw error
+}

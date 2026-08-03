@@ -178,7 +178,7 @@ function portraitStyle(index) {
 </script>
 
 <template>
-  <div class="membership-content" v-loading="useBackend && loading">
+  <div class="membership-content" v-loading="useBackend && loading" element-loading-text="正在同步会员数据">
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="module-page-heading">
       <div><span class="module-kicker">客户运营</span><h1>会员管理</h1><p>沉淀客户资产，持续提升忠诚度与复购表现。</p></div>
@@ -188,11 +188,13 @@ function portraitStyle(index) {
       <article class="member-metric-card">
         <p>活跃会员总数</p>
         <div class="metric-line"><strong class="metric-figure green">{{ memberCountDisplay.toLocaleString('en-US') }}</strong><span class="metric-up"><AppIcon name="arrow" />12%</span></div>
+        <img class="member-metric-art member-metric-art--network" src="/dashboard-assets/member-network.png" alt="" aria-hidden="true"/>
       </article>
       <article class="member-metric-card">
         <p>月均消费额</p>
         <strong class="metric-figure">¥142.50</strong>
         <div class="metric-progress"><span style="--value:62%" /></div>
+        <img class="member-metric-art member-metric-art--spend" src="/dashboard-assets/member-spend-scale.png" alt="" aria-hidden="true"/>
       </article>
     </section>
 
@@ -207,13 +209,13 @@ function portraitStyle(index) {
 
       <div class="member-table-card">
         <el-table :data="pageMembers" class="member-table" table-layout="fixed" empty-text="没有符合条件的会员">
-          <el-table-column label="会员信息" min-width="210"><template #default="{ row }"><div class="member-info-cell"><span class="member-avatar" :style="portraitStyle(row.portraitIndex)" role="img" :aria-label="`${row.name}的头像`" /><span><strong>{{ row.name }}</strong><small>{{ row.phone }}</small></span></div></template></el-table-column>
+          <el-table-column label="会员信息" min-width="190"><template #default="{ row }"><div class="member-info-cell"><span class="member-avatar" :style="portraitStyle(row.portraitIndex)" role="img" :aria-label="`${row.name}的头像`" /><span><strong>{{ row.name }}</strong><small>{{ row.phone }}</small></span></div></template></el-table-column>
           <el-table-column label="等级" min-width="104"><template #default="{ row }"><span class="tier-badge" :class="tierClass(row.tier)">{{ row.tier }}</span></template></el-table-column>
-          <el-table-column label="积分" min-width="104"><template #default="{ row }"><span class="member-points">{{ row.points.toLocaleString('en-US') }} 积分</span></template></el-table-column>
-          <el-table-column label="余额" min-width="104"><template #default="{ row }"><strong class="member-balance">{{ formatMoney(row.balance) }}</strong></template></el-table-column>
-          <el-table-column label="累计消费" min-width="118"><template #default="{ row }"><span class="member-spent">{{ formatMoney(row.spent) }}</span></template></el-table-column>
-          <el-table-column label="加入日期" min-width="128"><template #default="{ row }"><span class="member-joined">{{ row.joined }}</span></template></el-table-column>
-          <el-table-column label="操作" width="168" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><div class="table-row-actions"><button type="button" class="table-action-link" @click="openBalance(row)">调整余额</button><button type="button" class="table-action-link" @click="viewOrders(row)">查看订单</button></div></template></el-table-column>
+          <el-table-column label="积分" min-width="95"><template #default="{ row }"><span class="member-points">{{ row.points.toLocaleString('en-US') }} 积分</span></template></el-table-column>
+          <el-table-column label="余额" min-width="95"><template #default="{ row }"><strong class="member-balance">{{ formatMoney(row.balance) }}</strong></template></el-table-column>
+          <el-table-column label="累计消费" min-width="110"><template #default="{ row }"><span class="member-spent">{{ formatMoney(row.spent) }}</span></template></el-table-column>
+          <el-table-column label="加入日期" min-width="145"><template #default="{ row }"><span class="member-joined">{{ row.joined }}</span></template></el-table-column>
+          <el-table-column label="操作" width="155" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><div class="table-row-actions"><button type="button" class="table-action-link" @click="openBalance(row)">调整余额</button><button type="button" class="table-action-link" @click="viewOrders(row)">查看订单</button></div></template></el-table-column>
         </el-table>
         <footer class="member-table-footer"><span>{{ memberRange }}</span><el-pagination v-model:current-page="memberPage" background layout="prev, pager, next" :page-size="pageSize" :total="filteredMembers.length" :pager-count="5" /></footer>
       </div>

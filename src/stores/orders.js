@@ -62,7 +62,7 @@ function currentTimeLabel() {
 }
 
 // 新建订单：写入共享 store，返回新订单
-export function createOrder({ customer, items, amount, method = '堂食', status = '待处理', memberId = null }) {
+export function createOrder({ customer, items, amount, method = '堂食', status = '待处理', memberId = null, note = '', campaignId = null, campaignName = '', campaignDiscount = 0 }) {
   const order = {
     id: `#QS-${orderStore.seq++}`,
     customer,
@@ -75,6 +75,10 @@ export function createOrder({ customer, items, amount, method = '堂食', status
     ingredientsDeducted: false,
     pointsAccrued: false,
     memberId,
+    note,
+    campaignId,
+    campaignName,
+    campaignDiscount,
   }
   orderStore.orders.unshift(order)
   return order

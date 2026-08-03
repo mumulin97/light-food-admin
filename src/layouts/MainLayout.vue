@@ -9,6 +9,8 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { syncMemberStore } from '../services/membersApi'
 import { fetchNotifications, markAllNotificationsRead } from '../services/notificationsApi'
 import { localIsoDate, computeOrderAmount } from '../services/ordersApi'
+import { fetchCampaigns, recordCampaignUsage } from '../services/campaignsApi'
+import { bestCampaignForOrder, campaignStore, recordCampaignConversion, replaceCampaigns } from '../stores/campaigns'
 import { useDashboard } from '../composables/useDashboard'
 import { useOrders } from '../composables/useOrders'
 import AppIcon from '../components/AppIcon.vue'
@@ -74,6 +76,16 @@ const productPriceMap = computed(() =>
     : productPrices,
 )
 const productCatalog = computed(() => Object.keys(productPriceMap.value))
+const orderPricing = computed(() => {
+  try {
+    const base = computeOrderAmount([[orderForm.product, orderForm.quantity]], productPriceMap.value)
+    const member = orderForm.memberId ? findMember(orderForm.memberId) : null
+    const offer = bestCampaignForOrder({ items: [[orderForm.product, orderForm.quantity]], amount: base, member, method: orderForm.method })
+    return { base, offer, payable: offer?.payable ?? base }
+  } catch {
+    return { base: 0, offer: null, payable: 0 }
+  }
+})
 
 const topSearchPlaceholder = computed(() => {
   const match = navRoutes.find(item => item.name === route.name)
@@ -140,8 +152,30 @@ async function loadNotifications() {
 }
 
 onMounted(() => {
-  if (useBackend) loadNotifications()
+  if (useBackend) {
+    loadNotifications()
+    loadCampaignRuntime()
+  }
 })
+
+async function loadCampaignRuntime() {
+  if (!useBackend || !supabase) return campaignStore.campaigns
+  try {
+    const rows = await fetchCampaigns(supabase)
+    replaceCampaigns(rows)
+    return rows
+  } catch {
+    return campaignStore.campaigns
+  }
+}
+
+async function trackCampaignConversion(offer) {
+  if (!offer?.campaign) return
+  const campaign = recordCampaignConversion(offer.campaign.id)
+  if (useBackend && supabase && campaign) {
+    recordCampaignUsage(supabase, campaign).catch(() => {})
+  }
+}
 
 function success(message, customClass = 'light-bites-message') {
   ElMessage({ message, type: 'success', customClass, duration: 2400 })
@@ -223,6 +257,7 @@ async function openNewOrderDialog() {
       dashboard.loadStoreList(),
       dashboard.ensureProductPrices(),
       syncMemberStore(supabase),
+      loadCampaignRuntime(),
     ])
     syncOrderFormProduct()
   } catch (e) {
@@ -254,6 +289,15 @@ async function createOrder() {
     ElMessage({ message: e.message || '订单金额无效', type: 'warning', customClass: 'light-bites-message', duration: 3200 })
     return
   }
+  const offer = bestCampaignForOrder({
+    items: [[orderForm.product, orderForm.quantity]],
+    amount: total,
+    member: orderForm.memberId ? findMember(orderForm.memberId) : null,
+    method: orderForm.method,
+  })
+  const payable = offer?.payable ?? total
+  const campaignNote = offer ? `营销活动：${offer.campaign.name}（优惠 ¥${offer.discount.toFixed(2)}）` : ''
+  const orderNote = [orderForm.note.trim(), campaignNote].filter(Boolean).join('；')
   if (useBackend) {
     try {
       await dashboard.loadStoreList()
@@ -267,17 +311,18 @@ async function createOrder() {
         storeId,
         customer: orderForm.customer.trim(),
         items: [[orderForm.product, orderForm.quantity]],
-        amount: total,
+        amount: payable,
         method: orderForm.method,
-        note: orderForm.note,
+        note: orderNote,
         memberId: orderForm.memberId,
         priceByProduct: productPriceMap.value,
       })
       dashboard.selectedDateIso.value = localIsoDate()
+      await trackCampaignConversion(offer)
       Object.assign(orderForm, { customer: '', memberId: null, product: '抹茶能量碗', quantity: 1, method: '堂食', note: '' })
       orderDialogVisible.value = false
       success(
-        `订单 ${id} 已创建 · 可在控制台与订单管理中查看`,
+        offer ? `订单 ${id} 已创建 · 已使用「${offer.campaign.name}」优惠 ¥${offer.discount.toFixed(2)}` : `订单 ${id} 已创建 · 可在控制台与订单管理中查看`,
         'light-bites-message dashboard-glass-message',
       )
       dashboard.refresh().catch((refreshError) => {
@@ -297,15 +342,20 @@ async function createOrder() {
     const id = await persistNewOrder({
       customer: orderForm.customer.trim(),
       items: [[orderForm.product, orderForm.quantity]],
-      amount: total,
+      amount: payable,
       method: orderForm.method,
       status: '待处理',
       memberId: orderForm.memberId,
+      note: orderNote,
+      campaignId: offer?.campaign.id || null,
+      campaignName: offer?.campaign.name || '',
+      campaignDiscount: offer?.discount || 0,
     })
+    await trackCampaignConversion(offer)
     Object.assign(orderForm, { customer: '', memberId: null, product: '抹茶能量碗', quantity: 1, method: '堂食', note: '' })
     orderDialogVisible.value = false
     success(
-      `订单 ${id} 已创建 · 已进入待处理队列`,
+      offer ? `订单 ${id} 已创建 · 已使用「${offer.campaign.name}」优惠 ¥${offer.discount.toFixed(2)}` : `订单 ${id} 已创建 · 已进入待处理队列`,
       'light-bites-message dashboard-glass-message',
     )
   } catch (e) {
@@ -473,6 +523,7 @@ onBeforeUnmount(() => {
         </div>
         <el-form-item label="备注"><el-input v-model="orderForm.note" type="textarea" :rows="3" placeholder="过敏信息、口味偏好等"/></el-form-item>
       </el-form>
+      <div v-if="orderPricing.base" class="order-campaign-pricing" :class="{ matched: orderPricing.offer }"><div><span>{{ orderPricing.offer ? '已自动匹配活动' : '订单金额' }}</span><strong>{{ orderPricing.offer?.campaign.name || '暂无可用优惠' }}</strong></div><div class="order-campaign-amount"><small v-if="orderPricing.offer">¥{{ orderPricing.base.toFixed(2) }}</small><strong>¥{{ orderPricing.payable.toFixed(2) }}</strong></div></div>
       <div class="drawer-actions order-form-drawer-actions"><el-button :disabled="orderCreating" @click="orderDialogVisible = false">取消</el-button><el-button type="primary" :loading="orderCreating" :disabled="orderCreating" @click="createOrder">创建订单</el-button></div>
     </div>
   </el-drawer>

@@ -46,6 +46,7 @@ function syncDraftRangeFromList() {
 
 const orderPage = ref(1)
 const refreshing = ref(false)
+const filtersVisible = ref(false)
 
 const draftOrderId = ref('')
 const draftStatus = ref('全部')
@@ -56,6 +57,9 @@ const detailVisible = ref(false)
 const detailOrder = ref(null)
 
 const allOrders = computed(() => (useBackend ? orders.value : orderStore.orders))
+const pendingOrderCount = computed(() => allOrders.value.filter(order => order.status === '待处理').length)
+const orderTotalAmount = computed(() => allOrders.value.reduce((sum, order) => sum + Number(order.amount || 0), 0))
+const inventoryWarningCount = computed(() => inventoryStore.ingredients.filter(item => Number(item.stock) <= Number(item.threshold)).length)
 
 const filteredOrders = computed(() => {
   const keyword = props.query.trim().toLowerCase()
@@ -135,6 +139,7 @@ async function applyFilters() {
       return
     }
   }
+  filtersVisible.value = false
   ElMessage({ message: '筛选条件已应用', type: 'success', customClass: 'light-bites-message', duration: 2400 })
 }
 
@@ -214,17 +219,34 @@ function exportOrders() {
 </script>
 
 <template>
-  <div class="order-content" v-loading="useBackend && loading">
+  <div class="order-content" v-loading="loading || refreshing" element-loading-text="正在同步订单数据">
     <p v-if="useBackend && ordersLoadError" class="dashboard-error" role="alert">{{ ordersLoadError }}（若提示缺少列，请在 Supabase 执行 supabase/migrations/003_order_flags.sql）</p>
     <section class="order-page-heading">
       <div><h1>订单管理</h1><p>实时监控并更新当前活跃订单状态。</p></div>
       <div class="order-heading-actions">
+        <el-button class="order-filter-toggle" aria-label="订单筛选" @click="filtersVisible = !filtersVisible"><AppIcon name="filter" /></el-button>
         <el-button class="member-ghost-button" @click="exportOrders"><AppIcon name="download" />导出 CSV</el-button>
         <el-button class="member-primary-button" :loading="refreshing" @click="refreshOrders"><AppIcon v-if="!refreshing" name="refresh" />刷新</el-button>
       </div>
     </section>
 
-    <section class="order-filters">
+    <section class="order-metrics" aria-label="订单经营指标">
+      <article class="order-metric-card order-metric-card--pending">
+        <span>待处理订单</span><strong>{{ pendingOrderCount }}</strong><small>等待门店接单处理</small>
+        <span class="order-metric-badge">待处理</span>
+        <img src="/dashboard-assets/console1-transparent.png" alt="" aria-hidden="true"/>
+      </article>
+      <article class="order-metric-card order-metric-card--amount">
+        <span>今日订单总金额</span><strong>{{ formatMoney(orderTotalAmount) }}</strong><small>{{ allOrders.length }} 笔订单已计入</small>
+        <img src="/dashboard-assets/console2-transparent-final.png" alt="" aria-hidden="true"/>
+      </article>
+      <article class="order-metric-card order-metric-card--warning">
+        <span><AppIcon name="warning"/>库存预警</span><strong>{{ inventoryWarningCount }}</strong><small>项原料需要及时补货</small>
+        <img src="/dashboard-assets/inventory-alert-siren.png" alt="" aria-hidden="true"/>
+      </article>
+    </section>
+
+    <section v-if="filtersVisible" class="order-filters">
       <label class="order-filter-field order-filter-field--id"><span>订单编号</span><el-input v-model="draftOrderId" placeholder="如 #QS-90210" clearable @keyup.enter="applyFilters" /></label>
       <label class="order-filter-field order-filter-field--range">
         <span>日期范围</span>
@@ -250,14 +272,14 @@ function exportOrders() {
 
     <div class="member-table-card">
       <el-table :data="pageOrders" class="member-table order-table" table-layout="fixed" :row-class-name="rowClassName" empty-text="没有符合条件的订单">
-        <el-table-column prop="id" label="订单号" min-width="120"><template #default="{ row }"><span class="order-id">{{ row.id }}</span></template></el-table-column>
-        <el-table-column label="客户" min-width="180"><template #default="{ row }"><div class="order-customer"><span class="order-avatar" :style="{ background: row.avatarColor }">{{ row.customer.charAt(0) }}</span><span>{{ row.customer }}</span></div></template></el-table-column>
-        <el-table-column label="菜品" min-width="168" show-overflow-tooltip><template #default="{ row }"><span class="order-items-text">{{ formatOrderItems(row.items || []) }}</span></template></el-table-column>
-        <el-table-column prop="note" label="备注" min-width="140"><template #default="{ row }"><span class="order-note">{{ row.note || '—' }}</span></template></el-table-column>
-        <el-table-column label="金额" min-width="88"><template #default="{ row }"><strong class="order-amount">{{ formatMoney(row.amount) }}</strong></template></el-table-column>
-        <el-table-column label="状态" min-width="110"><template #default="{ row }"><span class="order-status" :class="STATUS_META[row.status].class"><i v-if="STATUS_META[row.status].dot" />{{ row.status }}</span></template></el-table-column>
-        <el-table-column prop="time" label="下单时间" min-width="156"><template #default="{ row }"><span class="order-time">{{ row.time }}</span></template></el-table-column>
-        <el-table-column label="操作" width="168" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><div class="table-row-actions"><button type="button" class="table-action-link" @click="openDetail(row)">详情</button><el-dropdown v-if="!isTerminal(row.status)" class="table-op-dropdown" trigger="click" popper-class="table-action-menu" @command="changeStatus(row, $event)"><button type="button" class="table-action-link">修改状态</button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="s in ALL_STATUSES.filter(item => item !== row.status)" :key="s" :command="s">{{ s }}</el-dropdown-item></el-dropdown-menu></template></el-dropdown><button v-else type="button" class="table-action-link" disabled>修改状态</button></div></template></el-table-column>
+        <el-table-column prop="id" label="订单号" min-width="105"><template #default="{ row }"><span class="order-id">{{ row.id }}</span></template></el-table-column>
+        <el-table-column label="客户" min-width="130"><template #default="{ row }"><div class="order-customer"><span class="order-avatar" :style="{ background: row.avatarColor }">{{ row.customer.charAt(0) }}</span><span>{{ row.customer }}</span></div></template></el-table-column>
+        <el-table-column label="菜品" min-width="145" show-overflow-tooltip><template #default="{ row }"><span class="order-items-text">{{ formatOrderItems(row.items || []) }}</span></template></el-table-column>
+        <el-table-column prop="note" label="备注" min-width="70"><template #default="{ row }"><span class="order-note">{{ row.note || '—' }}</span></template></el-table-column>
+        <el-table-column label="金额" min-width="82"><template #default="{ row }"><strong class="order-amount">{{ formatMoney(row.amount) }}</strong></template></el-table-column>
+        <el-table-column label="状态" min-width="105"><template #default="{ row }"><span class="order-status" :class="STATUS_META[row.status].class"><i v-if="STATUS_META[row.status].dot" />{{ row.status }}</span></template></el-table-column>
+        <el-table-column prop="time" label="下单时间" min-width="125"><template #default="{ row }"><span class="order-time">{{ row.time }}</span></template></el-table-column>
+        <el-table-column label="操作" width="135" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><div class="table-row-actions"><button type="button" class="table-action-link" @click="openDetail(row)">详情</button><el-dropdown v-if="!isTerminal(row.status)" class="table-op-dropdown" trigger="click" popper-class="table-action-menu" @command="changeStatus(row, $event)"><button type="button" class="table-action-link">修改状态</button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="s in ALL_STATUSES.filter(item => item !== row.status)" :key="s" :command="s">{{ s }}</el-dropdown-item></el-dropdown-menu></template></el-dropdown><button v-else type="button" class="table-action-link" disabled>修改状态</button></div></template></el-table-column>
       </el-table>
       <footer class="member-table-footer"><span>{{ orderRange }}</span><el-pagination v-model:current-page="orderPage" background layout="prev, pager, next" :page-size="pageSize" :total="filteredOrders.length" :pager-count="5" /></footer>
     </div>

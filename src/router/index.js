@@ -20,8 +20,8 @@ export const navRoutes = [
   { path: '/orders', name: 'orders', label: '订单管理', icon: 'cart', searchPlaceholder: '搜索订单、客户或商品...' },
   { path: '/members', name: 'members', label: '会员系统', icon: 'users', searchPlaceholder: '按手机号搜索会员...' },
   { path: '/marketing', name: 'marketing', label: '营销活动', icon: 'megaphone', searchPlaceholder: '搜索营销活动...' },
-  { path: '/employees', name: 'employees', label: '员工管理', icon: 'badge', searchPlaceholder: '搜索员工或日志...' },
-  { path: '/logs', name: 'logs', label: '系统日志', icon: 'history', searchPlaceholder: '搜索员工或日志...' },
+  { path: '/employees', name: 'employees', label: '员工管理', icon: 'badge', searchPlaceholder: '搜索员工姓名、邮箱或门店...' },
+  { path: '/logs', name: 'logs', label: '系统日志', icon: 'history', searchPlaceholder: '搜索用户、模块或操作内容...' },
 ]
 
 const router = createRouter({

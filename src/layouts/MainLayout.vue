@@ -332,7 +332,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'dashboard-shell': isDashboard }">
+  <div class="app-shell dashboard-shell">
     <aside id="sidebar" class="sidebar" :class="{ open: sidebarOpen, collapsed: sidebarCollapsed }" aria-label="主要导航">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">

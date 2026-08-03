@@ -180,6 +180,10 @@ function portraitStyle(index) {
 <template>
   <div class="membership-content" v-loading="useBackend && loading">
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
+    <section class="module-page-heading">
+      <div><span class="module-kicker">客户运营</span><h1>会员管理</h1><p>沉淀客户资产，持续提升忠诚度与复购表现。</p></div>
+      <span class="module-live-status"><i />会员体系正常</span>
+    </section>
     <section class="member-metrics member-metrics-2" aria-label="会员经营指标">
       <article class="member-metric-card">
         <p>活跃会员总数</p>

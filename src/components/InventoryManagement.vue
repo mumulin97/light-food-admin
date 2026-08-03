@@ -289,6 +289,10 @@ function exportIngredients() {
 <template>
   <div class="inventory-content" v-loading="useBackend && loading">
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
+    <section class="module-page-heading">
+      <div><span class="module-kicker">供应链中心</span><h1>原料库存</h1><p>掌握原料余量、采购成本与补货节奏。</p></div>
+      <span class="module-live-status"><i />库存数据已同步</span>
+    </section>
     <section class="inv-metrics" aria-label="库存概况">
       <article class="inv-card accent-green"><p>原料总数</p><div class="inv-figure-row"><strong>{{ ingredientTotalDisplay }}</strong><span class="inv-trend"><AppIcon name="arrow" />+5</span></div></article>
       <article class="inv-card accent-red"><p>库存预警</p><div class="inv-figure-row"><strong class="danger">12</strong><span class="inv-need">需采购</span></div></article>

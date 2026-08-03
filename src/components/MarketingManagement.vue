@@ -108,6 +108,10 @@ function editCampaign(campaign) {
 <template>
   <div class="membership-content" v-loading="useBackend && loading">
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
+    <section class="module-page-heading">
+      <div><span class="module-kicker">增长中心</span><h1>营销活动</h1><p>策划促销活动，跟踪转化效果与投入产出。</p></div>
+      <span class="module-live-status"><i />活动引擎运行中</span>
+    </section>
     <section class="marketing-metrics" aria-label="营销经营指标">
       <article class="member-metric-card accent">
         <p>活动转化率</p>

@@ -145,31 +145,36 @@ function openInventory(store) {
 </script>
 
 <template>
-  <div class="store-management-content" v-loading="useBackend && loading">
+  <div
+    class="store-management-content"
+    v-loading="useBackend && loading"
+    element-loading-text="正在同步门店数据"
+  >
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="store-page-heading">
-      <div><h1>门店管理</h1><p>查看并控制区域网络内所有活跃及待处理的门店位置。</p></div>
+      <div><h1>门店管理</h1></div>
       <el-button class="add-store-button" @click="openAdd"><AppIcon name="plus"/>添加新门店</el-button>
     </section>
 
-    <section class="store-summary-grid" aria-label="门店网络摘要">
-      <article class="store-summary-card"><span class="summary-icon green"><AppIcon name="globe"/></span><div><p>活跃市场</p><strong>{{ summary.openCount }}</strong><small>本月新增 {{ summary.newThisMonth }} 个</small></div></article>
-      <article class="store-summary-card"><span class="summary-icon blue"><AppIcon name="check"/></span><div><p>网络健康度</p><strong>{{ summary.health }}%</strong><small>营业中门店占比</small></div></article>
-      <article class="store-summary-card manager-card"><span class="summary-icon violet"><AppIcon name="users"/></span><div><p>区域负责人</p><div class="regional-manager"><span class="manager-avatar">AF</span><span><strong>Adrian Fletcher</strong><small>西海岸主管</small></span></div></div></article>
-    </section>
-
-    <section class="store-filter-panel" aria-label="门店筛选">
-      <label class="store-search-field store-search-field--hint"><AppIcon name="search"/><span>使用顶部搜索框按名称、地址筛选</span></label>
-      <el-select v-model="statusFilter" class="store-status-select" aria-label="门店状态">
-        <el-option label="所有状态" value="全部"/><el-option label="营业中" value="营业中"/><el-option label="已关闭" value="已关闭"/>
-      </el-select>
-      <el-popover placement="bottom-end" :width="284" trigger="click" popper-class="store-filter-popover">
-        <template #reference><el-button class="more-filter-button"><AppIcon name="filter"/>更多筛选</el-button></template>
-        <div class="advanced-filter"><strong>所在区域</strong><div class="filter-chip-list"><button v-for="region in ['全部区域','西海岸','中心区','港口区']" :key="region" :class="{ active: regionFilter === region }" @click="regionFilter = region">{{ region }}</button></div><label><span><strong>仅看本月新增</strong><small>筛选最近加入网络的门店</small></span><el-switch v-model="newOnly"/></label></div>
-      </el-popover>
+    <section class="store-overview-strip" aria-label="门店网络摘要">
+      <article><div><p>活跃市场</p><strong>{{ summary.openCount }}</strong><small>本月新增 {{ summary.newThisMonth }} 个</small></div><img src="/store-market-icon.png" alt="" aria-hidden="true"/></article>
+      <article><div><p>网络健康度</p><strong>{{ summary.health }}%</strong><small>营业中门店占比</small></div><img src="/store-health-icon.png" alt="" aria-hidden="true"/></article>
+      <article class="manager-card"><div><p>区域负责人</p><strong class="manager-name">Adrian Fletcher</strong><small>西海岸主管</small></div><img src="/store-manager-icon.png" alt="" aria-hidden="true"/></article>
     </section>
 
     <section class="store-table-card">
+      <header class="store-list-head">
+        <h2>门店列表</h2>
+        <div class="store-list-filters">
+          <div class="store-status-segments" role="group" aria-label="门店状态筛选">
+            <button v-for="status in ['全部','营业中','已关闭']" :key="status" type="button" :class="{ active: statusFilter === status }" @click="statusFilter = status">{{ status }}</button>
+          </div>
+          <el-popover placement="bottom-end" :width="284" trigger="click" popper-class="store-filter-popover">
+            <template #reference><el-button class="more-filter-button"><AppIcon name="filter"/>更多筛选<span v-if="regionFilter !== '全部区域' || newOnly" class="filter-active-dot" /></el-button></template>
+            <div class="advanced-filter"><strong>所在区域</strong><div class="filter-chip-list"><button v-for="region in ['全部区域','西海岸','中心区','港口区']" :key="region" :class="{ active: regionFilter === region }" @click="regionFilter = region">{{ region }}</button></div><label><span><strong>仅看本月新增</strong><small>筛选最近加入网络的门店</small></span><el-switch v-model="newOnly"/></label></div>
+          </el-popover>
+        </div>
+      </header>
       <el-table :data="pageStores" class="store-management-table" table-layout="fixed" empty-text="暂无符合条件的门店">
         <el-table-column label="门店名称" min-width="128"><template #default="{ row }"><div class="store-name-cell"><span class="store-row-icon" :class="{ closed: row.status === '已关闭' }"><AppIcon name="store"/></span><strong>{{ row.name }}</strong></div></template></el-table-column>
         <el-table-column label="地址" min-width="120"><template #default="{ row }"><el-tooltip placement="top" :show-after="220" popper-class="store-detail-tooltip"><template #content><div class="store-tooltip-content"><span><AppIcon name="store"/></span><div><small>门店地址</small><strong>{{ row.address }}</strong></div></div></template><span class="store-detail-text" tabindex="0" :aria-label="`门店地址：${row.address}`">{{ row.address }}</span></el-tooltip></template></el-table-column>

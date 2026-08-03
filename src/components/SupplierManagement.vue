@@ -298,6 +298,10 @@ function exportSuppliers() {
 <template>
   <div class="supplier-content" v-loading="useBackend && loading">
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
+    <section class="module-page-heading">
+      <div><span class="module-kicker">供应链中心</span><h1>供应商管理</h1><p>维护合作伙伴、履约质量与供应资质。</p></div>
+      <span class="module-live-status"><i />合作网络运行良好</span>
+    </section>
     <section class="supplier-toolbar">
       <div class="supplier-status-filter">
         <span>状态筛选：</span>

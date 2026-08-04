@@ -181,7 +181,7 @@ function portraitStyle(index) {
   <div class="membership-content" v-loading="useBackend && loading" element-loading-text="正在同步会员数据">
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="module-page-heading">
-      <div><span class="module-kicker">客户运营</span><h1>会员管理</h1><p>沉淀客户资产，持续提升忠诚度与复购表现。</p></div>
+      <div><h1>会员管理</h1><p>沉淀客户资产，持续提升忠诚度与复购表现。</p></div>
       <span class="module-live-status"><i />会员体系正常</span>
     </section>
     <section class="member-metrics member-metrics-2" aria-label="会员经营指标">

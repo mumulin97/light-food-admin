@@ -382,8 +382,8 @@ function traceLogSource(log) {
 <style scoped>
 .employee-management-content { padding: 28px 32px 40px; background: radial-gradient(circle at 87% 6%,rgba(194,221,247,.38),transparent 33%),radial-gradient(circle at 56% 88%,rgba(209,238,222,.27),transparent 35%),transparent; }
 .system-page-heading { min-height: 84px; align-items: center; margin-bottom: 15px; }
-.system-page-heading h1 { color: #112a2b; font-size: 31px; }
-.system-page-heading p { margin-top: 6px; font-size: 12.5px; }
+.system-page-heading h1 { color: #173f32; font-size: 30px; }
+.system-page-heading p { margin: 8px 0 0; color: #647068; font-size: 14px; }
 .system-tabs { padding: 4px; border: 1px solid rgba(255,255,255,.9); border-radius: 14px; background: rgba(255,255,255,.62); box-shadow: inset 0 0 0 1px rgba(198,220,217,.56),0 10px 24px rgba(43,78,77,.07); backdrop-filter: blur(16px); }
 .system-tabs button { height: 39px; border-radius: 10px; font-size: 12.5px; }
 .system-tabs button.active { background: linear-gradient(135deg,#17884d,#08743b); box-shadow: 0 6px 14px rgba(11,116,61,.22),inset 0 1px rgba(255,255,255,.24); }

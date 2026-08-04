@@ -1,11 +1,14 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AppIcon from '../components/AppIcon.vue'
 import RevenueChart from '../components/RevenueChart.vue'
 import { useDashboard } from '../composables/useDashboard'
 import { computeAlertTrend, computeTrendPercent } from '../services/dashboard'
 import { orderStore, formatMoney as formatOrderMoney, dashboardStatusClass } from '../stores/orders'
+import { inventoryStore } from '../stores/inventory'
+import { campaignStore } from '../stores/campaigns'
 import { isSupabaseConfigured } from '../lib/supabase'
 
 defineProps({
@@ -16,6 +19,7 @@ const emit = defineEmits(['open-notifications', 'open-all-orders'])
 
 const useBackend = isSupabaseConfigured()
 const dashboard = useDashboard()
+const router = useRouter()
 
 const mockDateOptions = [
   { value: '2023年10月24日', label: '10月24日', meta: '今天' },
@@ -147,6 +151,24 @@ const hasRankingData = computed(() => (currentRanking.value?.length ?? 0) > 0)
 
 const consoleOrders = computed(() => (useBackend ? dashboard.dayOrders.value : orderStore.orders))
 const latestOrders = computed(() => consoleOrders.value.slice(0, 3))
+const pendingOrderCount = computed(() =>
+  consoleOrders.value.filter(order => ['待处理', '制作中', '待取餐'].includes(order.status)).length,
+)
+const lowStockIngredients = computed(() =>
+  inventoryStore.ingredients.filter(item => Number(item.stock) <= Number(item.threshold)),
+)
+const linkedSupplierCount = computed(() =>
+  new Set(lowStockIngredients.value.map(item => item.supplier).filter(Boolean)).size,
+)
+const activeCampaignCount = computed(() =>
+  campaignStore.campaigns.filter(campaign => campaign.enabled && !campaign.scheduled).length,
+)
+const closureItems = computed(() => [
+  { key: 'orders', label: '订单处理', value: pendingOrderCount.value, unit: '笔待推进', icon: 'cart', route: '/orders', tone: 'blue' },
+  { key: 'inventory', label: '库存响应', value: parseMetricNumber('alerts', currentMetrics.value?.alerts), unit: '项预警', icon: 'warning', route: '/inventory', tone: 'amber' },
+  { key: 'suppliers', label: '供应协同', value: linkedSupplierCount.value, unit: '家需联动', icon: 'truck', route: '/suppliers', tone: 'mint' },
+  { key: 'marketing', label: '活动承接', value: activeCampaignCount.value, unit: '个投放中', icon: 'megaphone', route: '/marketing', tone: 'violet' },
+])
 const dashboardLoading = dashboard.loading
 const dashboardError = dashboard.error
 
@@ -196,7 +218,7 @@ defineExpose({
   >
     <p v-if="useBackend && dashboardError" class="dashboard-error" role="alert">{{ dashboardError }}</p>
     <section class="page-heading">
-      <div><h1>管理概览</h1></div>
+      <div><h1>管理概览</h1><p>实时掌握门店经营全局，监控营收趋势与运营效能。</p></div>
       <el-dropdown trigger="click" popper-class="date-dropdown" @command="selectDate">
         <el-button class="date-button" :aria-label="selectedDateLabel"><AppIcon name="calendar"/><span>{{ selectedDateLabel }}</span><AppIcon class="chevron" name="chevron"/></el-button>
         <template #dropdown><el-dropdown-menu><el-dropdown-item v-for="date in dateOptionsList" :key="date.value" :command="date.value" :class="{ selected: selectedDateKey === date.value }"><span>{{ date.label }}</span><small>{{ date.meta }}</small></el-dropdown-item></el-dropdown-menu></template>
@@ -204,6 +226,17 @@ defineExpose({
     </section>
 
     <section class="metrics-grid" aria-label="关键经营指标">
+      <article class="efficiency-card metric-card metric-card--efficiency">
+        <img class="kitchen-tools-art" src="/dashboard-assets/kitchen-tools-transparent.png" alt="" aria-hidden="true" />
+        <span class="efficiency-kicker">今日厨房状态</span>
+        <h2>厨房运营效能</h2>
+        <p>您的团队今日表现优异，运营效率达到 <strong>94%</strong>。请保持！</p>
+        <div class="efficiency-meter"><span style="--value:94%"/></div>
+        <div class="efficiency-actions">
+          <el-button class="efficiency-btn">查看排班</el-button>
+          <el-button class="efficiency-btn efficiency-btn--primary">效率详情 <AppIcon name="arrow"/></el-button>
+        </div>
+      </article>
       <article class="metric-card metric-card--orders">
         <div class="metric-card-head"><span class="metric-icon green"><AppIcon name="receipt"/></span><div class="metric-body"><p>今日订单数</p><strong class="metric-value">{{ currentMetrics.orders }}</strong></div><span class="trend" :class="currentMetricTrends.orders.tone">{{ currentMetricTrends.orders.label }}</span></div>
         <img class="metric-visual" src="/dashboard-assets/console1-transparent.png" alt="" />
@@ -224,19 +257,32 @@ defineExpose({
 
     <section class="analytics-grid">
       <article class="panel chart-panel">
-        <div class="panel-heading"><h2>七日营收趋势</h2><div class="chart-actions"><span class="legend"><i/>营业收入</span><el-dropdown trigger="click" popper-class="range-dropdown" @command="currentRange = Number($event)"><el-button class="range-button"><span class="range-button-label">最近 {{ currentRange }} 天</span><AppIcon name="chevron"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="range in [7,14,30]" :key="range" :command="range" :class="{ selected: currentRange === range }">最近 {{ range }} 天</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></div>
+        <div class="panel-heading"><h2>七日营收趋势</h2><div class="chart-actions"><el-dropdown trigger="click" popper-class="range-dropdown" @command="currentRange = Number($event)"><el-button class="range-button"><span class="range-button-label">最近 {{ currentRange }} 天</span><AppIcon name="chevron"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="range in [7,14,30]" :key="range" :command="range" :class="{ selected: currentRange === range }">最近 {{ range }} 天</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></div>
         <div class="chart-wrap"><RevenueChart :values="chartValues" :labels="chartLabels" :animated="motionEnabled" /></div>
       </article>
-
-      <article class="panel ranking-panel">
-        <div class="panel-heading"><h2>畅销排行榜 Top 5</h2><el-dropdown trigger="click" popper-class="ranking-dropdown" @command="rankingMode = $event"><el-button class="more-button" aria-label="排行设置"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="volume" :class="{ selected: rankingMode === 'volume' }">按销量排序</el-dropdown-item><el-dropdown-item command="revenue" :class="{ selected: rankingMode === 'revenue' }">按营收排序</el-dropdown-item><el-dropdown-item command="growth" :class="{ selected: rankingMode === 'growth' }">按增长排序</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div>
-        <div v-if="hasRankingData" class="ranking-list"><div v-for="([name,value,width,color]) in currentRanking" :key="name" class="ranking-item" :style="{ '--rank-color': color }"><div class="ranking-copy"><strong>{{ name }}</strong><span>{{ value }}</span></div><div class="rank-track"><div class="rank-bar" :style="{ '--bar-width': `${width}%` }"/></div></div></div>
-        <div v-else class="ranking-empty" role="status">
-          <span class="ranking-prism" aria-hidden="true"><i/><i/><i/><i/><i/></span>
-          <AppIcon name="box"/>
-          <p>暂无畅销数据</p>
-          <small>当前日期或门店还没有可统计的订单，请切换日期、门店或稍后再看。</small>
+      <article class="panel closure-panel">
+        <div class="panel-heading closure-heading">
+          <div><h2>经营协同闭环</h2><p>订单驱动库存、供应与营销同步响应</p></div>
+          <span class="closure-live"><i aria-hidden="true"/>实时联动</span>
         </div>
+        <div class="closure-flow" aria-label="经营协同流程">
+          <button
+            v-for="item in closureItems"
+            :key="item.key"
+            type="button"
+            class="closure-step"
+            :class="`closure-step--${item.tone}`"
+            @click="router.push(item.route)"
+          >
+            <span class="closure-step-icon"><AppIcon :name="item.icon"/></span>
+            <span class="closure-step-copy"><small>{{ item.label }}</small><strong>{{ item.value }}<b>{{ item.unit }}</b></strong></span>
+            <AppIcon class="closure-step-arrow" name="arrow"/>
+          </button>
+        </div>
+        <footer class="closure-footer">
+          <span>订单 → 库存 → 供应 → 营销</span>
+          <button type="button" @click="router.push('/logs')">查看闭环日志 <AppIcon name="arrow"/></button>
+        </footer>
       </article>
     </section>
 
@@ -251,11 +297,14 @@ defineExpose({
         </el-table>
         <img class="order-receipts-art" src="/dashboard-assets/order-receipts-transparent.png" alt="" aria-hidden="true" />
       </article>
-      <article class="efficiency-card">
-        <img class="kitchen-tools-art" src="/dashboard-assets/kitchen-tools-transparent.png" alt="" aria-hidden="true" />
-        <div><span class="efficiency-kicker">今日厨房状态</span><h2>厨房运营效能</h2><p>您的团队今日表现优异，运营效率达到 <strong>94%</strong>。请保持！</p></div>
-        <div class="efficiency-meter"><span style="--value:94%"/></div>
-        <div class="efficiency-actions"><el-button @click="ElMessage({ message: '今日排班：前厅 5 人 · 后厨 7 人 · 配送 3 人', customClass: 'light-bites-message dashboard-glass-message', duration: 2400 })">查看排班</el-button><el-button @click="ElMessage({ message: '出餐均时 8.6 分钟 · 较上周提升 11%', customClass: 'light-bites-message dashboard-glass-message', duration: 2400 })">效率详情<AppIcon name="arrow"/></el-button></div>
+      <article class="panel ranking-panel">
+        <div class="panel-heading"><h2>畅销排行榜 Top 5</h2><el-dropdown trigger="click" popper-class="ranking-dropdown" @command="rankingMode = $event"><el-button class="more-button" aria-label="排行设置"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="volume" :class="{ selected: rankingMode === 'volume' }">按销量排序</el-dropdown-item><el-dropdown-item command="revenue" :class="{ selected: rankingMode === 'revenue' }">按营收排序</el-dropdown-item><el-dropdown-item command="growth" :class="{ selected: rankingMode === 'growth' }">按增长排序</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div>
+        <div v-if="hasRankingData" class="ranking-list"><div v-for="([name,value,width,color]) in currentRanking" :key="name" class="ranking-item" :style="{ '--rank-color': color }"><div class="ranking-copy"><strong>{{ name }}</strong><span>{{ value }}</span></div><div class="rank-track"><div class="rank-bar" :style="{ '--bar-width': `${width}%` }"/></div></div></div>
+        <div v-else class="ranking-empty" role="status">
+          <AppIcon name="box"/>
+          <p>暂无畅销数据</p>
+          <small>当前日期或门店还没有可统计的订单，请切换日期、门店或稍后再看。</small>
+        </div>
       </article>
     </section>
   </div>

@@ -89,7 +89,6 @@ function buildFullOption({ animateUpdate = false } = {}) {
         return `<div class="revenue-tooltip">
           <div class="revenue-tooltip__date"><i></i><span>${point.axisValue}</span></div>
           <strong>¥${Number(point.value).toLocaleString('zh-CN')}</strong>
-          <small>营业收入</small>
         </div>`
       },
     },

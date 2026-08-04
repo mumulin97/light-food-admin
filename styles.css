@@ -600,17 +600,17 @@ svg { display: block; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--page-heading-gap); margin-bottom: var(--page-heading-margin-bottom); }
 .page-heading h1 { margin: 0; font-size: 31px; line-height: 1.2; letter-spacing: -.035em; }
 .page-heading p { margin: 8px 0 0; color: #647068; font-size: 14px; }
-.date-button.el-button { min-width: 224px; height: 48px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 18px; border: 1px solid #d6ddd8; border-radius: 13px; background: #fffefa; color: var(--text); box-shadow: var(--shadow-1); font-weight: 700; }
+.date-button.el-button { min-width: 180px; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border: 1px solid #d6ddd8; border-radius: 13px; background: #fffefa; color: var(--text); box-shadow: var(--shadow-1); font-weight: 700; }
 .date-button.el-button:hover, .date-button.el-button:focus { border-color: #9fc7ac; background: #fffefa; color: var(--text); }
-.date-button.el-button > span { gap: 12px; }
-.date-button svg { width: 20px; height: 20px; fill: none; stroke: var(--primary); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.date-button .chevron { width: 16px; color: #405047; }
+.date-button.el-button > span { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.date-button svg { width: 18px; height: 18px; fill: none; stroke: var(--primary); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.date-button .chevron { width: 14px; color: #405047; }
 .date-menu { top: 56px; right: 0; width: 230px; padding: 7px; }
 .date-menu button { align-items: baseline; }
 .date-menu button small { color: #7b857f; }
 .date-menu button.selected { background: #edf8f0; color: var(--primary); font-weight: 700; }
 
-.metrics-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: var(--content-gap); }
+.metrics-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: var(--content-gap); }
 .metric-card { min-width: 0; display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "icon title trend" "icon value value"; align-items: center; column-gap: 8px; row-gap: 2px; padding: 18px 16px; border: 1px solid rgba(226,235,229,.85); border-radius: 16px; background: #fff; box-shadow: var(--shadow-1); transition: transform .2s, box-shadow .2s, border-color .2s; }
 .metric-card:hover, .metric-card:focus-visible { transform: translateY(-3px); border-color: #c6dfcd; box-shadow: 0 12px 28px rgba(55,71,79,.1); }
 .metric-icon { width: 40px; height: 40px; flex: 0 0 auto; grid-area: icon; display: grid; place-items: center; border-radius: 12px; }
@@ -618,6 +618,9 @@ svg { display: block; }
 .metric-icon.neutral { background: #52CF5C; color: #fff; }
 .metric-icon.blue { background: #8056D9; color: #fff; }
 .metric-icon.red { background: #F55F3F; color: #fff; }
+.metric-icon.orange { background: #F5A623; color: #fff; }
+.efficiency-meter-mini { width: 48px; height: 6px; overflow: hidden; border-radius: 999px; background: rgba(0,0,0,.1); }
+.efficiency-meter-mini span { display: block; width: var(--value); height: 100%; border-radius: inherit; background: #F5A623; animation: growBar .9s ease both; }
 .metric-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .metric-body { display: contents; }
 .metric-body p { grid-area: title; min-width: 0; margin: 0; color: #859087; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -634,13 +637,13 @@ svg { display: block; }
 .panel { border: 1px solid rgba(225,234,228,.8); border-radius: 16px; background: #fff; box-shadow: var(--shadow-1); }
 .panel-heading { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 24px; }
 .panel-heading h2, .efficiency-card h2 { margin: 0; font-size: 20px; line-height: 1.3; letter-spacing: -.02em; }
-.chart-actions { display: flex; align-items: center; gap: 24px; }
+.chart-actions { display: flex; align-items: center; gap: 12px; }
 .legend { display: flex; align-items: center; gap: 8px; color: #34443a; font-size: 13px; font-weight: 700; white-space: nowrap; }
 .legend i { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
-.range-button.el-button { height: 38px; display: flex; align-items: center; gap: 4px; margin: 0; padding: 10px 12px; border: 0; border-radius: 12px; background: #f3f9fc; color: var(--text); font-size: 12px; font-weight: 700; }
+.range-button.el-button { height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; padding: 8px 14px; border: 0; border-radius: 12px; background: #f3f9fc; color: var(--text); font-size: 12px; font-weight: 700; }
 .range-button.el-button:hover, .range-button.el-button:focus { border-color: transparent; background: #e9f4f8; color: var(--text); }
-.range-button.el-button > span { gap: 4px; }
-.range-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+.range-button.el-button > span { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.range-button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
 .range-menu, .ranking-menu { top: 45px; right: 0; width: 154px; padding: 6px; }
 .range-menu button, .ranking-menu button { font-size: 12px; }
 .range-menu button.selected, .ranking-menu button.selected { background: #edf8f0; color: var(--primary); font-weight: 700; }
@@ -713,7 +716,7 @@ svg { display: block; }
 .rank-bar { height: 100%; width: var(--bar-width); border-radius: inherit; background: var(--bar-color, #087824); transform-origin: left; animation: growBar .65s ease both; }
 @keyframes growBar { from { transform: scaleX(0); } }
 
-.lower-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 1.35fr); gap: var(--content-gap); margin-top: var(--content-gap); padding-bottom: 28px; }
+.lower-grid { display: grid; grid-template-columns: 1fr; gap: var(--content-gap); margin-top: var(--content-gap); padding-bottom: 28px; }
 .orders-panel { overflow: hidden; }
 .view-all.el-button { display: flex; align-items: center; gap: 5px; height: 34px; margin: 0; padding: 8px; border-radius: 9px; background: transparent; color: #087824; font-size: 12px; font-weight: 800; }
 .view-all.el-button > span { gap: 5px; }
@@ -1415,7 +1418,7 @@ td:last-child, th:last-child { padding-right: 0; text-align: right; font-weight:
 /* Product catalog · dashboard glass visual language */
 .dashboard-shell .product-catalog-content {
   min-height: calc(100vh - 84px);
-  padding: 36px 32px 38px;
+  padding: 26px 34px 42px;
   background:
     radial-gradient(circle at 90% 3%, rgba(194,219,241,.42), transparent 31%),
     radial-gradient(circle at 28% 78%, rgba(172,207,223,.2), transparent 36%),
@@ -1427,10 +1430,10 @@ td:last-child, th:last-child { padding-right: 0; text-align: right; font-weight:
 }
 .dashboard-shell .product-page-heading h1 {
   color: #173f32;
-  font-size: 31px;
+  font-size: 30px;
 }
 .dashboard-shell .product-page-heading p {
-  color: #71847c;
+  color: #647068;
   font-size: 14px;
 }
 .product-heading-actions {
@@ -2210,12 +2213,18 @@ body.reduce-motion *:not(.echarts-container):not(.echarts-container *)::after {
 }
 .dashboard-shell .dashboard-content {
   min-height: calc(100vh - 84px);
-  padding: 28px 32px 36px;
+  padding: 26px 34px 42px;
   gap: 20px;
   background:
     radial-gradient(circle at 92% 2%, rgba(196, 218, 239, .42), transparent 30%),
     radial-gradient(circle at 35% 78%, rgba(170, 194, 236, .22), transparent 35%),
     radial-gradient(circle at 68% 35%, rgba(255, 218, 183, .11), transparent 25%);
+}
+.dashboard-shell .supplier-content {
+  padding: 26px 34px 42px;
+}
+.dashboard-shell .employee-management-content {
+  padding: 26px 34px 42px;
 }
 .dashboard-shell .dashboard-content > .el-loading-mask,
 .dashboard-shell .store-management-content > .el-loading-mask,
@@ -2458,7 +2467,7 @@ body.reduce-motion *:not(.echarts-container):not(.echarts-container *)::after {
   color: #286859;
 }
 .dashboard-shell .metrics-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 18px;
 }
 .dashboard-shell .metric-card {
@@ -2719,9 +2728,12 @@ body.reduce-motion *:not(.echarts-container):not(.echarts-container *)::after {
 }
 .dashboard-shell .efficiency-card {
   position: relative;
-  min-height: 318px;
+  min-height: 316px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px 22px 20px;
   overflow: hidden;
-  padding: 30px 34px;
   border: 1px solid rgba(255,255,255,.42);
   border-radius: 25px;
   background:
@@ -2750,67 +2762,121 @@ body.reduce-motion *:not(.echarts-container):not(.echarts-container *)::after {
 .dashboard-shell .kitchen-tools-art {
   position: absolute !important;
   z-index: 0 !important;
-  top: -18px;
-  right: -58px;
-  width: min(60%, 330px);
-  height: 290px;
+  bottom: -10px;
+  right: -16px;
+  width: min(50%, 150px);
+  height: 120px;
   object-fit: contain;
-  opacity: .34;
-  filter: drop-shadow(0 20px 28px rgba(2, 20, 26, .28)) saturate(.78);
+  opacity: .25;
+  filter: drop-shadow(0 14px 20px rgba(2, 20, 26, .28)) saturate(.78);
   transform: rotate(2deg);
   pointer-events: none;
 }
+
+/* 小标签 */
 .dashboard-shell .efficiency-kicker {
-  color: rgba(215, 232, 235, .76);
+  display: block;
+  color: rgba(215, 232, 235, .7);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: none;
+  line-height: 1;
 }
+
+/* 大标题 */
 .dashboard-shell .efficiency-card h2 {
-  margin-top: 7px;
+  margin: 0;
   color: #f8fcfb;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -.01em;
   text-shadow: 0 2px 12px rgba(5, 22, 27, .22);
 }
+
+/* 描述段落 */
 .dashboard-shell .efficiency-card p {
-  max-width: 68%;
-  color: rgba(229, 241, 241, .78);
+  margin: 0;
+  color: rgba(229, 241, 241, .85);
+  font-size: 13px;
+  line-height: 1.5;
 }
 .dashboard-shell .efficiency-card p strong {
   color: #fff;
+  font-weight: 800;
+  text-decoration: underline;
   text-decoration-color: #80d4be;
+  text-underline-offset: 3px;
 }
+
+/* 进度条 */
 .dashboard-shell .efficiency-meter {
-  height: 18px;
-  padding: 3px;
+  height: 10px;
+  padding: 2px;
   border-radius: 99px;
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.1);
   background: rgba(4, 24, 30, .42);
-  box-shadow: 0 5px 14px rgba(0,0,0,.12) inset, 0 1px 0 rgba(255,255,255,.1);
+  box-shadow: 0 3px 8px rgba(0,0,0,.1) inset, 0 1px 0 rgba(255,255,255,.08);
 }
 .dashboard-shell .efficiency-meter span {
-  height: 12px;
+  display: block;
+  height: 6px;
   border-radius: inherit;
   background: linear-gradient(90deg, #77c9e9 0%, #7ad9bd 58%, #f4d08c 100%);
-  box-shadow: 0 0 20px rgba(121, 216, 191, .32), 0 1px 0 rgba(255,255,255,.65) inset;
+  box-shadow: 0 0 12px rgba(121, 216, 191, .32), 0 1px 0 rgba(255,255,255,.55) inset;
+  animation: growBar .9s ease both;
+}
+
+/* 按钮组 */
+.dashboard-shell .efficiency-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 6px;
 }
 .dashboard-shell .efficiency-actions .el-button {
-  height: 44px;
-  padding: 0 18px;
+  height: 38px;
+  padding: 0 16px;
   border: 1px solid rgba(255,255,255,.42);
-  border-radius: 15px;
-  background: rgba(255,255,255,.14);
+  border-radius: 12px;
+  background: rgba(255,255,255,.12);
   color: #fff;
-  box-shadow: 0 8px 18px rgba(0, 67, 25, .14), 0 1px 0 rgba(255,255,255,.2) inset;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(0, 67, 25, .12), 0 1px 0 rgba(255,255,255,.18) inset;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
-.dashboard-shell .efficiency-actions .el-button:last-child {
-  border-color: rgba(255,255,255,.72);
+.dashboard-shell .efficiency-actions .el-button:hover,
+.dashboard-shell .efficiency-actions .el-button:focus {
+  border-color: rgba(255,255,255,.55);
+  background: rgba(255,255,255,.2);
+  color: #fff;
+}
+.dashboard-shell .efficiency-actions .efficiency-btn--primary {
+  border-color: #fff;
   background: rgba(255,255,255,.93);
   color: #207446;
+}
+.dashboard-shell .efficiency-actions .efficiency-btn--primary:hover {
+  background: #f5faf6;
+  border-color: #fff;
+}
+.dashboard-shell .efficiency-actions .efficiency-btn--primary svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
 }
 
 @media (max-width: 1180px) {
   .dashboard-shell { --sidebar-width: 220px; }
   .dashboard-shell .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-shell .metric-card { min-height: 286px; }
+  .dashboard-shell .efficiency-card { min-height: 286px; }
   .dashboard-shell .metric-visual { height: 210px; }
 }
 
@@ -2832,7 +2898,11 @@ body.reduce-motion *:not(.echarts-container):not(.echarts-container *)::after {
   .dashboard-shell .metrics-grid { grid-template-columns: 1fr; gap: 14px; }
   .dashboard-shell .metric-card { min-height: 286px; }
   .dashboard-shell .metric-visual { height: 214px; }
-  .dashboard-shell .efficiency-card { padding: 26px 22px; }
+  .dashboard-shell .efficiency-card { min-height: 286px; padding: 16px 14px 12px; }
+  .dashboard-shell .efficiency-card h2 { font-size: 15px; }
+  .dashboard-shell .efficiency-value { font-size: 32px; }
+  .dashboard-shell .efficiency-desc { font-size: 10px; }
+  .dashboard-shell .efficiency-actions .el-button { height: 28px; padding: 0 10px; font-size: 10px; }
   .dashboard-shell .lower-grid { gap: 14px; }
 }
 
@@ -2840,6 +2910,15 @@ body.reduce-motion *:not(.echarts-container):not(.echarts-container *)::after {
 body.compact .dashboard-shell .dashboard-content {
   padding: 18px 18px 24px;
 }
+body.compact .dashboard-shell .efficiency-card {
+  padding: 14px 16px 12px;
+}
+body.compact .dashboard-shell .efficiency-card h2 { font-size: 15px; }
+body.compact .dashboard-shell .efficiency-value { font-size: 32px; }
+body.compact .dashboard-shell .efficiency-desc { font-size: 10px; line-height: 1.35; }
+body.compact .dashboard-shell .efficiency-actions .el-button { height: 28px; padding: 0 10px; font-size: 10px; }
+body.compact .dashboard-shell .kitchen-tools-art { width: min(50%, 130px); height: 105px; }
+
 .el-overlay:has(.order-form-drawer),
 .el-overlay:has(.settings-drawer),
 .el-overlay:has(.orders-drawer),
@@ -3300,7 +3379,7 @@ body.compact .dashboard-shell .dashboard-content {
 
 /* Membership · dashboard reference layout */
 .dashboard-shell .membership-content {
-  padding: 34px 32px 42px;
+  padding: 26px 34px 42px;
   gap: 22px;
   background:
     radial-gradient(circle at 89% 3%, rgba(196,220,242,.4), transparent 31%),
@@ -3312,8 +3391,8 @@ body.compact .dashboard-shell .dashboard-content {
   align-items: center;
   margin: 0;
 }
-.dashboard-shell .membership-content .module-page-heading h1 { color: #173f32; font-size: 32px; }
-.dashboard-shell .membership-content .module-page-heading p { color: #71847c; }
+.dashboard-shell .membership-content .module-page-heading h1 { color: #173f32; font-size: 30px; }
+.dashboard-shell .membership-content .module-page-heading p { color: #647068; font-size: 14px; }
 .dashboard-shell .membership-content .module-live-status {
   margin: 0;
   border-color: rgba(119,184,158,.3);
@@ -3674,7 +3753,7 @@ body.compact .dashboard-shell .dashboard-content {
 
 /* Order management · dashboard reference layout */
 .dashboard-shell .order-content {
-  padding: 34px 32px 42px;
+  padding: 26px 34px 42px;
   gap: 20px;
   background:
     radial-gradient(circle at 89% 3%, rgba(196,220,242,.4), transparent 31%),
@@ -3686,8 +3765,8 @@ body.compact .dashboard-shell .dashboard-content {
   align-items: center;
   margin: 0;
 }
-.dashboard-shell .order-page-heading h1 { color: #173f32; font-size: 32px; }
-.dashboard-shell .order-page-heading p { color: #71847c; }
+.dashboard-shell .order-page-heading h1 { color: #173f32; font-size: 30px; }
+.dashboard-shell .order-page-heading p { color: #647068; font-size: 14px; }
 .dashboard-shell .order-heading-actions { align-items: center; gap: 10px; }
 .dashboard-shell .order-heading-actions .el-button {
   height: 46px;
@@ -3945,7 +4024,7 @@ body.compact .dashboard-shell .dashboard-content {
 
 /* Inventory · dashboard reference layout */
 .dashboard-shell .inventory-content {
-  padding: 34px 32px 42px;
+  padding: 26px 34px 42px;
   gap: 22px;
   background:
     radial-gradient(circle at 88% 5%, rgba(195,220,243,.4), transparent 31%),
@@ -3959,9 +4038,9 @@ body.compact .dashboard-shell .dashboard-content {
 }
 .dashboard-shell .inventory-content .module-page-heading h1 {
   color: #173f32;
-  font-size: 32px;
+  font-size: 30px;
 }
-.dashboard-shell .inventory-content .module-page-heading p { color: #71847c; }
+.dashboard-shell .inventory-content .module-page-heading p { color: #647068; font-size: 14px; }
 .dashboard-shell .inventory-content .module-kicker {
   margin-bottom: 8px;
   color: #3d9277;
@@ -4920,11 +4999,11 @@ body.compact .dashboard-shell .dashboard-content {
 }
 
 .dashboard-shell .dashboard-content {
-  padding-inline: 48px;
+  padding-inline: 34px;
 }
 
 body.compact .dashboard-shell .dashboard-content {
-  padding-inline: 32px;
+  padding-inline: 24px;
 }
 
 /* 排行设置只保留图标反馈，消除 Element 按钮的方形底色与焦点层 */
@@ -5334,7 +5413,7 @@ body.compact .dashboard-shell .dashboard-content {
 .employee-management-content {
   position: relative;
   min-height: calc(100vh - var(--topbar-height));
-  padding: 30px 32px 44px;
+  padding: 26px 34px 42px;
   background:
     radial-gradient(circle at 94% 2%, rgba(176, 220, 238, .22), transparent 30%),
     radial-gradient(circle at 8% 92%, rgba(185, 231, 211, .18), transparent 30%),
@@ -5360,10 +5439,10 @@ body.compact .dashboard-shell .dashboard-content {
 .store-page-heading h1,
 .system-page-heading h1 {
   margin: 0;
-  color: #142b30;
-  font-size: 31px;
-  line-height: 1.15;
-  letter-spacing: -.04em;
+  color: #173f32;
+  font-size: 30px;
+  line-height: 1.2;
+  letter-spacing: -.035em;
 }
 
 .module-page-heading p,
@@ -5372,7 +5451,7 @@ body.compact .dashboard-shell .dashboard-content {
 .store-page-heading p,
 .system-page-heading p {
   margin: 8px 0 0;
-  color: #6d7d7d;
+  color: #647068;
   font-size: 13.5px;
 }
 
@@ -5562,8 +5641,8 @@ body.compact .dashboard-shell .dashboard-content {
 }
 
 .dashboard-shell .store-page-heading h1 {
-  color: #142329;
-  font-size: 32px;
+  color: #173f32;
+  font-size: 30px;
 }
 
 .dashboard-shell .add-store-button.el-button {
@@ -6152,9 +6231,9 @@ body.compact .dashboard-shell .dashboard-content {
 
 /* ============ 门店管理比例与日志式列表统一 ============ */
 .dashboard-shell .store-page-heading p {
-  margin: 6px 0 0;
-  color: #6e8083;
-  font-size: 12.5px;
+  margin: 8px 0 0;
+  color: #647068;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -6677,4 +6756,379 @@ body .el-drawer .drawer-actions .el-button:hover { transform: translateY(-1px); 
   body .el-drawer { width: min(94vw, 580px) !important; border-radius: 24px 0 0 24px !important; }
   body .el-drawer:not(.ai-assistant-drawer) .el-drawer__body { padding: 22px !important; }
   body .el-drawer .modal-header h2 { font-size: 25px; }
+}
+
+/* ============ 控制台 · 厨房运营效能紧凑排版 ============ */
+.dashboard-shell .metrics-grid .metric-card--efficiency {
+  min-height: 228px;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 6px;
+  padding: 16px 14px 10px;
+  border-radius: 22px;
+  text-align: left;
+}
+
+.dashboard-shell .metrics-grid .metric-card--efficiency .efficiency-kicker {
+  width: 100%;
+  text-align: left;
+  font-size: 10.5px;
+  line-height: 1.2;
+  letter-spacing: .05em;
+}
+
+.dashboard-shell .metrics-grid .metric-card--efficiency h2 {
+  width: 100%;
+  margin-top: 2px;
+  text-align: left;
+  font-size: 18px;
+  line-height: 1.18;
+  letter-spacing: -.02em;
+}
+
+.dashboard-shell .metrics-grid .metric-card--efficiency p {
+  width: 100%;
+  max-width: 170px;
+  text-align: left;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.dashboard-shell .metrics-grid .metric-card--efficiency p strong {
+  font-size: 14px;
+  text-underline-offset: 2px;
+}
+
+.dashboard-shell .metrics-grid .metric-card--efficiency .efficiency-meter {
+  width: 100%;
+  max-width: none;
+  align-self: flex-start;
+  height: 9px;
+  margin: 8px 0 0;
+  padding: 2px;
+  border-color: rgba(255,255,255,.14);
+  background: rgba(4, 24, 30, .5);
+  box-shadow: 0 3px 8px rgba(0,0,0,.14) inset, 0 1px 0 rgba(255,255,255,.09);
+}
+
+.dashboard-shell .metrics-grid .metric-card--efficiency .efficiency-meter span {
+  height: 5px;
+  width: var(--value);
+  background: linear-gradient(90deg, #69c9ec 0%, #72d8c0 57%, #f4d38c 100%);
+  box-shadow: 0 0 10px rgba(112, 215, 194, .3), 0 1px 0 rgba(255,255,255,.55) inset;
+}
+
+.dashboard-shell .metrics-grid .metric-card--efficiency .kitchen-tools-art {
+  right: -3px;
+  bottom: 31px;
+  width: 88px;
+  height: 76px;
+  opacity: .12;
+  transform: rotate(0deg);
+}
+
+.dashboard-shell .metrics-grid .metric-card--efficiency .efficiency-actions {
+  width: min(100%, 190px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.14fr);
+  align-self: flex-start;
+  justify-self: start;
+  justify-items: stretch;
+  gap: 6px;
+  margin: auto 0 0;
+  padding-top: 4px;
+  text-align: left;
+}
+
+.dashboard-shell .metrics-grid .metric-card--efficiency .efficiency-actions .el-button,
+.dashboard-shell .metrics-grid .metric-card--efficiency .efficiency-actions .el-button:last-child {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px !important;
+  height: 30px !important;
+  margin: 0;
+  padding: 0 6px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.dashboard-shell .metrics-grid .metric-card--efficiency .efficiency-actions .el-button > span {
+  min-width: 0;
+  justify-content: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.dashboard-shell .metrics-grid .metric-card--efficiency .efficiency-actions svg,
+.dashboard-shell .metrics-grid .metric-card--efficiency .efficiency-actions .el-button:last-child svg {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+}
+
+body.compact .dashboard-shell .metrics-grid .metric-card--efficiency {
+  min-height: 212px;
+  padding: 14px 12px 9px;
+}
+
+body.compact .dashboard-shell .metrics-grid .metric-card--efficiency h2 {
+  font-size: 17px;
+}
+
+body.compact .dashboard-shell .metrics-grid .metric-card--efficiency .efficiency-actions .el-button {
+  min-height: 28px !important;
+  height: 28px !important;
+  padding: 0 5px;
+  font-size: 9.5px;
+}
+
+/* ============ 全业务页面 · 顶部内容基线与控制台统一 ============ */
+.dashboard-shell .store-management-content,
+.dashboard-shell .product-catalog-content,
+.dashboard-shell .inventory-content,
+.dashboard-shell .supplier-content,
+.dashboard-shell .order-content,
+.dashboard-shell .membership-content,
+.dashboard-shell .employee-management-content {
+  padding-top: 26px !important;
+}
+
+.dashboard-shell .store-management-content .store-page-heading,
+.dashboard-shell .product-catalog-content .product-page-heading,
+.dashboard-shell .inventory-content .module-page-heading,
+.dashboard-shell .supplier-content .module-page-heading,
+.dashboard-shell .order-content .order-page-heading,
+.dashboard-shell .membership-content .module-page-heading,
+.dashboard-shell .employee-management-content .system-page-heading {
+  min-height: 0 !important;
+  height: auto !important;
+  align-items: flex-start !important;
+}
+
+.dashboard-shell .store-management-content .store-page-heading > div:first-child,
+.dashboard-shell .product-catalog-content .product-page-heading > div:first-child,
+.dashboard-shell .inventory-content .module-page-heading > div:first-child,
+.dashboard-shell .supplier-content .module-page-heading > div:first-child,
+.dashboard-shell .order-content .order-page-heading > div:first-child,
+.dashboard-shell .membership-content .module-page-heading > div:first-child,
+.dashboard-shell .employee-management-content .system-page-heading > div:first-child {
+  align-self: flex-start;
+}
+
+.dashboard-shell .membership-content.marketing-page .module-page-heading h1 {
+  margin-top: 0 !important;
+}
+
+/* 标题区与首个内容模块间距：统一采用控制台 20px 基准 */
+.dashboard-shell .inventory-content,
+.dashboard-shell .membership-content {
+  gap: 20px !important;
+}
+
+.dashboard-shell .store-management-content .store-page-heading,
+.dashboard-shell .product-catalog-content .product-page-heading,
+.dashboard-shell .employee-management-content .system-page-heading {
+  margin-bottom: 20px !important;
+}
+
+/* ============ 控制台 · 趋势独占一行，订单与排行均分 ============ */
+.dashboard-shell .analytics-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.dashboard-shell .lower-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.dashboard-shell .lower-grid .orders-panel,
+.dashboard-shell .lower-grid .ranking-panel,
+.dashboard-shell .analytics-grid .chart-panel,
+.dashboard-shell .analytics-grid .closure-panel {
+  width: 100%;
+  min-height: 360px;
+  height: 100%;
+}
+
+.dashboard-shell .closure-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(114, 210, 190, .19), transparent 29%),
+    radial-gradient(circle at 14% 90%, rgba(116, 166, 231, .16), transparent 34%),
+    linear-gradient(145deg, rgba(255,255,255,.66), rgba(221,240,244,.34));
+}
+
+.dashboard-shell .closure-heading {
+  min-height: 78px;
+  align-items: flex-start;
+}
+
+.dashboard-shell .closure-heading > div {
+  display: grid;
+  gap: 5px;
+}
+
+.dashboard-shell .closure-heading p {
+  margin: 0;
+  color: #72858a;
+  font-size: 11px;
+}
+
+.dashboard-shell .closure-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(255,255,255,.78);
+  border-radius: 999px;
+  color: #3a796b;
+  background: rgba(235,249,244,.58);
+  box-shadow: 0 7px 16px rgba(49,105,91,.07), 0 1px 0 rgba(255,255,255,.88) inset;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.dashboard-shell .closure-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #48bd8c;
+  box-shadow: 0 0 0 4px rgba(72,189,140,.1), 0 0 10px rgba(72,189,140,.35);
+}
+
+.dashboard-shell .closure-flow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 18px;
+}
+
+.dashboard-shell .closure-step {
+  min-width: 0;
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.8);
+  border-radius: 16px;
+  color: #31555b;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255,255,255,.78), transparent 42%),
+    linear-gradient(145deg, rgba(255,255,255,.54), rgba(217,236,241,.38));
+  box-shadow: 0 10px 22px rgba(52,88,92,.07), 0 1px 0 rgba(255,255,255,.92) inset;
+  text-align: left;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.dashboard-shell .closure-step:hover,
+.dashboard-shell .closure-step:focus-visible {
+  border-color: rgba(91,171,151,.42);
+  box-shadow: 0 13px 25px rgba(47,96,94,.11), 0 0 0 3px rgba(89,181,158,.08);
+  transform: translateY(-1px);
+}
+
+.dashboard-shell .closure-step-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #4b8191;
+  background: rgba(207,232,244,.64);
+}
+
+.dashboard-shell .closure-step--amber .closure-step-icon { color: #a06a31; background: rgba(250,228,190,.62); }
+.dashboard-shell .closure-step--mint .closure-step-icon { color: #377c69; background: rgba(201,239,225,.66); }
+.dashboard-shell .closure-step--violet .closure-step-icon { color: #6d61a4; background: rgba(224,216,249,.62); }
+
+.dashboard-shell .closure-step-icon svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.dashboard-shell .closure-step-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-shell .closure-step-copy small {
+  color: #73878a;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.dashboard-shell .closure-step-copy strong {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: #24474e;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.dashboard-shell .closure-step-copy strong b {
+  overflow: hidden;
+  color: #6f8488;
+  font-size: 9px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-shell .closure-step-arrow {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: #779097;
+  stroke-width: 2;
+}
+
+.dashboard-shell .closure-footer {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding: 10px 18px 14px;
+  color: #789096;
+  font-size: 10px;
+}
+
+.dashboard-shell .closure-footer > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  color: #347a69;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.dashboard-shell .closure-footer svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+@media (max-width: 900px) {
+  .dashboard-shell .analytics-grid,
+  .dashboard-shell .lower-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

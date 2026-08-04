@@ -185,7 +185,7 @@ function formatMoney(value) {
   <div class="membership-content marketing-page" v-loading="useBackend && loading" element-loading-text="正在同步营销数据">
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="module-page-heading">
-      <div><span class="module-kicker">增长中心</span><h1>营销活动</h1><p>连接会员、商品与订单，让活动从配置到转化形成闭环。</p></div>
+      <div><h1>营销活动</h1><p>连接会员、商品与订单，让活动从配置到转化形成闭环。</p></div>
       <span class="module-live-status"><i />{{ activeCampaigns.length }} 个活动正在匹配订单</span>
     </section>
 
@@ -251,7 +251,22 @@ function formatMoney(value) {
 .marketing-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 13px; }
 .marketing-summary-card { position: relative; min-width: 0; min-height: 136px; box-sizing: border-box; overflow: hidden; padding: 20px 17px; border: 1px solid rgba(255,255,255,.9); border-radius: 21px; background: linear-gradient(145deg,rgba(255,255,255,.82),rgba(235,246,246,.58)); box-shadow: inset 0 0 0 1px rgba(193,219,216,.58), 0 14px 30px rgba(49,84,84,.08); backdrop-filter: blur(18px); }
 .marketing-summary-card::after { position: absolute; right: -35px; bottom: -55px; width: 150px; height: 150px; border-radius: 50%; background: rgba(185,225,216,.28); filter: blur(26px); content: ''; }
-.marketing-summary-card.primary { background: linear-gradient(145deg,#159858,#087a43 64%,#096a3d); color: #fff; box-shadow: inset 0 1px rgba(255,255,255,.24), 0 16px 30px rgba(11,120,67,.21); }
+.marketing-summary-card.primary {
+  border-color: rgba(255,255,255,.42);
+  color: #fff;
+  background:
+    radial-gradient(circle at 86% 14%, rgba(126,206,194,.28), transparent 27%),
+    radial-gradient(circle at 18% 92%, rgba(91,140,208,.22), transparent 38%),
+    radial-gradient(circle at 64% 112%, rgba(232,173,91,.18), transparent 30%),
+    linear-gradient(145deg, rgba(31,60,72,.96), rgba(20,57,64,.94) 55%, rgba(24,65,61,.94));
+  box-shadow:
+    0 18px 34px rgba(32,61,74,.22),
+    0 2px 0 rgba(255,255,255,.3) inset,
+    0 -2px 0 rgba(5,25,30,.24) inset,
+    12px 0 28px rgba(98,179,167,.08) inset;
+  backdrop-filter: blur(24px) saturate(1.2);
+}
+.marketing-summary-card.primary::after { background: rgba(126,206,194,.17); }
 .marketing-summary-card > span, .marketing-summary-card > strong, .marketing-summary-card > p { position: relative; z-index: 2; max-width: 62%; }
 .marketing-summary-card > span { color: #536d61; font-size: 12px; font-weight: 750; }
 .marketing-summary-card.primary > span { color: rgba(255,255,255,.84); }

@@ -353,7 +353,7 @@ function exportSuppliers() {
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
 
     <section class="module-page-heading">
-      <div><span class="module-kicker">供应链中心</span><h1>供应商协同</h1><p>从供应档案、资质履约到原料补货，统一处理供应链风险。</p></div>
+      <div><h1>供应商协同</h1><p>从供应档案、资质履约到原料补货，统一处理供应链风险。</p></div>
       <span class="module-live-status" :class="{ 'has-risk': !networkHealthy }"><i />{{ networkHealthy ? '供应网络运行正常' : `${riskSuppliers.length + unregisteredSources.length} 项风险待处理` }}</span>
     </section>
 

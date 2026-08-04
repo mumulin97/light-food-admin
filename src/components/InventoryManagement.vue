@@ -310,7 +310,7 @@ function exportIngredients() {
   <div class="inventory-content" v-loading="useBackend && loading" element-loading-text="正在同步原料库存">
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="module-page-heading">
-      <div><span class="module-kicker">供应链中心</span><h1>原料库存</h1><p>掌握原料余量、采购成本与补货节奏。</p></div>
+      <div><h1>原料库存</h1><p>掌握原料余量、采购成本与补货节奏。</p></div>
       <el-button class="product-date-button inventory-date-button" :aria-label="todayLabel"><AppIcon name="calendar"/><span>{{ todayLabel }}</span><AppIcon class="chevron" name="chevron"/></el-button>
     </section>
     <section class="inv-metrics" aria-label="库存概况">

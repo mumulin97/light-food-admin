@@ -1,13 +1,13 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { campaignStore, campaignRuleLabel, campaignUsageNumber, replaceCampaigns } from '../stores/campaigns'
 import { orderStore } from '../stores/orders'
 import { memberStore } from '../stores/members'
-import { createCampaign, fetchCampaigns, setCampaignEnabled, updateCampaign } from '../services/campaignsApi'
+import { createCampaign, fetchCampaigns, setCampaignArchived, setCampaignEnabled, updateCampaign } from '../services/campaignsApi'
 import { fetchOrders } from '../services/ordersApi'
 import { syncMemberStore } from '../services/membersApi'
 import { fetchCatalogProducts } from '../services/products'
@@ -21,7 +21,7 @@ const loading = ref(false)
 const loadError = ref('')
 const saving = ref(false)
 const statusFilter = ref('全部')
-const STATUS_TABS = ['全部', '进行中', '已暂停', '待上线']
+const STATUS_TABS = ['全部', '进行中', '已暂停', '待上线', '已归档']
 const campaigns = ref(campaignStore.campaigns)
 const orders = ref(useBackend ? [] : orderStore.orders)
 const products = ref([])
@@ -38,15 +38,17 @@ const productOptions = computed(() => ['全部商品', ...new Set([
   ...products.value.map(item => item.name),
   ...orders.value.flatMap(order => (order.items || []).map(item => item[0])),
 ])])
-const activeCampaigns = computed(() => campaigns.value.filter(item => item.enabled && !item.scheduled))
-const scheduledCampaigns = computed(() => campaigns.value.filter(item => item.scheduled))
-const pausedCampaigns = computed(() => campaigns.value.filter(item => !item.enabled && !item.scheduled))
+const activeCampaigns = computed(() => campaigns.value.filter(item => item.enabled && !item.scheduled && !item.archivedAt))
+const scheduledCampaigns = computed(() => campaigns.value.filter(item => item.scheduled && !item.archivedAt))
+const pausedCampaigns = computed(() => campaigns.value.filter(item => !item.enabled && !item.scheduled && !item.archivedAt))
+const archivedCampaigns = computed(() => campaigns.value.filter(item => item.archivedAt))
 const completedOrders = computed(() => orders.value.filter(item => item.status === '已完成'))
 const orderRevenue = computed(() => completedOrders.value.reduce((sum, item) => sum + Number(item.amount || 0), 0))
 const memberOrderRate = computed(() => {
   if (!orders.value.length) return 0
   return Math.round(orders.value.filter(item => item.memberId).length / orders.value.length * 100)
 })
+const eligibleMemberCount = computed(() => memberStore.members.filter(member => (member.status || '正常') === '正常').length)
 const campaignUsageTotal = computed(() => campaigns.value.reduce((sum, item) => sum + campaignUsageNumber(item), 0))
 const averageRoi = computed(() => {
   const values = campaigns.value
@@ -58,6 +60,7 @@ const averageRoi = computed(() => {
 })
 
 function campaignState(campaign) {
+  if (campaign.archivedAt) return '已归档'
   if (campaign.scheduled) return '待上线'
   return campaign.enabled ? '进行中' : '已暂停'
 }
@@ -66,6 +69,7 @@ function statusCount(status) {
   if (status === '进行中') return activeCampaigns.value.length
   if (status === '已暂停') return pausedCampaigns.value.length
   if (status === '待上线') return scheduledCampaigns.value.length
+  if (status === '已归档') return archivedCampaigns.value.length
   return campaigns.value.length
 }
 
@@ -137,6 +141,7 @@ async function saveCampaign() {
     ...campaignForm,
     name: campaignForm.name.trim(), desc: campaignForm.desc.trim(), icon: campaignForm.type === '满减' ? 'piggy' : campaignForm.type === '件数折扣' ? 'receipt' : 'megaphone',
     enabled: campaignForm.launchMode === '立即启用', scheduled: campaignForm.launchMode === '计划上线',
+    archivedAt: editingCampaign.value?.archivedAt || null,
     usageLabel: editingCampaign.value?.usageLabel || '使用次数', usage: editingCampaign.value?.usage || '0 次',
     roi: editingCampaign.value?.roi || '无数据',
     threshold: Number(campaignForm.threshold) || 0, discount: Number(campaignForm.discount) || 0,
@@ -164,6 +169,7 @@ async function saveCampaign() {
 }
 
 async function toggleCampaign(campaign, enabled) {
+  if (campaign.archivedAt) return
   const previous = campaign.enabled
   campaign.enabled = enabled
   campaign.scheduled = false
@@ -173,6 +179,31 @@ async function toggleCampaign(campaign, enabled) {
   } catch (error) {
     campaign.enabled = previous
     ElMessage.error(error.message || '活动状态更新失败')
+  }
+}
+
+async function toggleCampaignArchive(campaign) {
+  const archive = !campaign.archivedAt
+  if (archive) {
+    try {
+      await ElMessageBox.confirm(
+        '归档后活动将停止投放并保留核销、预算和 ROI 历史。',
+        `确认归档活动「${campaign.name}」？`,
+        { confirmButtonText: '确认归档', cancelButtonText: '取消', type: 'warning' },
+      )
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
+  }
+  try {
+    let updated
+    if (useBackend && supabase) updated = await setCampaignArchived(supabase, campaign.id, archive)
+    else updated = { ...campaign, archivedAt: archive ? new Date().toISOString() : null, enabled: false, scheduled: false }
+    Object.assign(campaign, updated)
+    ElMessage.success(`活动「${campaign.name}」已${archive ? '归档' : '恢复为暂停状态'}`)
+  } catch (error) {
+    ElMessage.error(error.message || '更新活动归档状态失败')
   }
 }
 
@@ -193,7 +224,7 @@ function formatMoney(value) {
       <article class="marketing-summary-card primary"><span>进行中活动</span><strong>{{ activeCampaigns.length }}<small> 个</small></strong><p>{{ scheduledCampaigns.length }} 个待上线 · {{ pausedCampaigns.length }} 个已暂停</p><img class="marketing-summary-art conveyor" src="/dashboard-assets/console1-transparent.png" alt="" /></article>
       <article class="marketing-summary-card"><span>累计核销</span><strong>{{ campaignUsageTotal.toLocaleString('zh-CN') }}<small> 次</small></strong><p>下单命中活动后自动回写</p><img class="marketing-summary-art settlement" src="/dashboard-assets/console2-transparent-final.png" alt="" /></article>
       <article class="marketing-summary-card"><span>平均 ROI</span><strong>{{ averageRoi }}<small>%</small></strong><p>基于已有活动投产数据</p><img class="marketing-summary-art roi" src="/dashboard-assets/marketing-roi.png" alt="" /></article>
-      <article class="marketing-summary-card"><span>会员订单占比</span><strong>{{ memberOrderRate }}<small>%</small></strong><p>{{ memberStore.members.length }} 位会员可参与定向活动</p><img class="marketing-summary-art member-share" src="/dashboard-assets/marketing-member-share.png" alt="" /></article>
+      <article class="marketing-summary-card"><span>会员订单占比</span><strong>{{ memberOrderRate }}<small>%</small></strong><p>{{ eligibleMemberCount }} 位正常会员可参与定向活动</p><img class="marketing-summary-art member-share" src="/dashboard-assets/marketing-member-share.png" alt="" /></article>
     </section>
 
     <section class="marketing-filter-bar">
@@ -203,29 +234,29 @@ function formatMoney(value) {
 
     <section class="marketing-workspace">
       <div class="campaign-grid marketing-campaign-grid">
-        <article v-for="campaign in filteredCampaigns" :key="campaign.id" class="campaign-card marketing-campaign-card" :class="{ disabled: !campaign.enabled, scheduled: campaign.scheduled }">
+        <article v-for="campaign in filteredCampaigns" :key="campaign.id" class="campaign-card marketing-campaign-card" :class="{ disabled: !campaign.enabled, scheduled: campaign.scheduled, archived: campaign.archivedAt }">
           <div class="campaign-top">
             <div class="campaign-identity"><span class="campaign-icon"><AppIcon :name="campaign.icon" /></span><span class="campaign-state" :class="campaignState(campaign)">{{ campaignState(campaign) }}</span></div>
-            <label class="campaign-toggle"><span>{{ campaign.enabled ? '投放中' : '已关闭' }}</span><el-switch :model-value="campaign.enabled" :disabled="campaign.scheduled" @change="toggleCampaign(campaign, $event)" /></label>
+            <label class="campaign-toggle"><span>{{ campaign.archivedAt ? '已归档' : campaign.enabled ? '投放中' : '已关闭' }}</span><el-switch :model-value="campaign.enabled" :disabled="campaign.scheduled || Boolean(campaign.archivedAt)" @change="toggleCampaign(campaign, $event)" /></label>
           </div>
           <div><h3>{{ campaign.name }}</h3><p class="campaign-desc">{{ campaign.desc }}</p></div>
           <div class="campaign-rule-row"><strong>{{ campaignRuleLabel(campaign) }}</strong><span>{{ campaign.product }}</span><span>{{ campaign.audience }}</span><span>{{ campaign.channel }}</span></div>
           <div class="campaign-stats"><div><small>{{ campaign.usageLabel }}</small><strong>{{ campaign.usage }}</strong></div><div><small>投产比 (ROI)</small><strong :class="String(campaign.roi).startsWith('+') ? 'positive' : 'muted'">{{ campaign.roi }}</strong></div><div><small>活动预算</small><strong>{{ formatMoney(campaign.budget) }}</strong></div></div>
-          <footer class="campaign-foot"><span :class="{ scheduled: campaign.scheduled }">{{ campaign.expiry }}</span><button type="button" @click="resetForm(campaign)">编辑规则</button></footer>
+          <footer class="campaign-foot"><span :class="{ scheduled: campaign.scheduled }">{{ campaign.expiry }}</span><div class="campaign-foot-actions"><button v-if="!campaign.archivedAt" type="button" @click="resetForm(campaign)">编辑规则</button><button type="button" :class="{ danger: !campaign.archivedAt }" @click="toggleCampaignArchive(campaign)">{{ campaign.archivedAt ? '恢复活动' : '归档活动' }}</button></div></footer>
         </article>
         <div v-if="!filteredCampaigns.length" class="campaign-empty"><strong>没有符合条件的活动</strong><p>调整状态筛选或创建一个新活动。</p></div>
       </div>
 
       <aside class="marketing-loop-panel">
         <span class="module-kicker">增长闭环</span><h2>活动会流向哪里</h2><p>启用后的活动会自动参与新建订单匹配，命中后更新核销次数，并继续影响会员消费与积分。</p>
-        <ol><li><b>1</b><span><strong>活动规则</strong><small>{{ activeCampaigns.length }} 个规则正在生效</small></span></li><li><b>2</b><span><strong>商品与会员</strong><small>{{ productOptions.length - 1 }} 个商品 · {{ memberStore.members.length }} 位会员</small></span></li><li><b>3</b><span><strong>订单转化</strong><small>{{ completedOrders.length }} 单已完成 · {{ formatMoney(orderRevenue) }}</small></span></li><li><b>4</b><span><strong>效果回流</strong><small>{{ campaignUsageTotal.toLocaleString('zh-CN') }} 次核销进入活动分析</small></span></li></ol>
+        <ol><li><b>1</b><span><strong>活动规则</strong><small>{{ activeCampaigns.length }} 个规则正在生效</small></span></li><li><b>2</b><span><strong>商品与会员</strong><small>{{ productOptions.length - 1 }} 个商品 · {{ eligibleMemberCount }} 位正常会员</small></span></li><li><b>3</b><span><strong>订单转化</strong><small>{{ completedOrders.length }} 单已完成 · {{ formatMoney(orderRevenue) }}</small></span></li><li><b>4</b><span><strong>效果回流</strong><small>{{ campaignUsageTotal.toLocaleString('zh-CN') }} 次核销进入活动分析</small></span></li></ol>
         <div class="marketing-loop-actions"><button type="button" @click="router.push('/products')">管理适用商品</button><button type="button" @click="router.push('/members')">查看目标会员</button><button type="button" @click="router.push('/orders')">跟踪活动订单</button></div>
       </aside>
     </section>
   </div>
 
   <el-drawer v-model="campaignVisible" class="campaign-drawer" size="580px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">活动配置</span><h2>{{ editingCampaign ? '编辑营销活动' : '创建营销活动' }}</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="campaignVisible = false"><AppIcon name="close" /></el-button></div>
+    <div class="modal-header"><div><h2>{{ editingCampaign ? '编辑营销活动' : '创建营销活动' }}</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="campaignVisible = false"><AppIcon name="close" /></el-button></div>
     <el-form label-position="top" @submit.prevent="saveCampaign">
       <div class="form-row"><el-form-item label="活动名称"><el-input v-model="campaignForm.name" placeholder="如 周末会员满减" /></el-form-item><el-form-item label="活动类型"><el-select v-model="campaignForm.type"><el-option v-for="item in ['满减','折扣','件数折扣']" :key="item" :label="item" :value="item" /></el-select></el-form-item></div>
       <el-form-item label="活动说明"><el-input v-model="campaignForm.desc" type="textarea" :rows="3" placeholder="面向顾客展示的活动说明" /></el-form-item>
@@ -297,6 +328,7 @@ function formatMoney(value) {
 .campaign-state { padding: 5px 9px; border-radius: 999px; color: #23764d; background: #e8f4ed; font-size: 11px; font-weight: 750; }
 .campaign-state.已暂停 { color: #78847d; background: #eef1ef; }
 .campaign-state.待上线 { color: #9b681b; background: #fff2d9; }
+.campaign-state.已归档 { color: #68777b; background: #e8eef0; }
 .campaign-rule-row { display: flex; flex-wrap: nowrap; gap: 5px; }
 .campaign-rule-row strong, .campaign-rule-row span { min-width: 0; padding: 4px 6px; border-radius: 7px; color: #617168; background: #f0f4f1; font-size: 9.5px; white-space: nowrap; }
 .campaign-rule-row strong { color: #167346; background: #e7f5ed; }
@@ -304,6 +336,9 @@ function formatMoney(value) {
 .marketing-campaign-card .campaign-stats small { font-size: 10.5px; white-space: nowrap; }
 .marketing-campaign-card .campaign-stats strong { font-size: 15px; }
 .marketing-campaign-card .campaign-foot { padding-top: 9px; }
+.marketing-campaign-card.archived { opacity: .78; }
+.campaign-foot-actions { display: inline-flex; align-items: center; gap: 12px; }
+.campaign-foot-actions button.danger { color: #b45e50; }
 .marketing-loop-panel { grid-column: 1 / -1; min-height: 154px; display: grid; grid-template-columns: minmax(200px,.72fr) minmax(0,2fr); grid-template-areas: "kicker steps" "title steps" "copy steps" "actions actions"; column-gap: 22px; align-content: start; box-sizing: border-box; padding: 17px; border: 1px solid rgba(255,255,255,.9); border-radius: 20px; background: linear-gradient(150deg,rgba(245,252,248,.85),rgba(255,255,255,.58)); box-shadow: inset 0 0 0 1px rgba(204,225,221,.58), 0 13px 28px rgba(45,78,77,.075); backdrop-filter: blur(18px); }
 .marketing-loop-panel > .module-kicker { grid-area: kicker; }
 .marketing-loop-panel h2 { margin: 0; color: #19362a; font-size: 20px; }

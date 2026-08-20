@@ -374,33 +374,32 @@ function exportSuppliers() {
 
     <div class="member-table-card">
       <el-table :data="pageSuppliers" class="member-table supplier-table" table-layout="fixed" :row-class-name="({ row }) => row.status === '停用' ? 'is-inactive' : ''" empty-text="没有符合条件的供应商">
-        <el-table-column label="供应商" min-width="220"><template #default="{ row }"><button type="button" class="supplier-name-cell supplier-name-button" @click="openDetail(row)"><span class="supplier-avatar">{{ row.name.charAt(0) }}</span><span><strong>{{ row.name }}</strong><small>{{ row.category }}</small></span></button></template></el-table-column>
-        <el-table-column label="供货关联" min-width="150"><template #default="{ row }"><div class="supplier-supply-cell"><strong>{{ supplierInsight(row).items.length }} 项原料</strong><small :class="{ danger: supplierInsight(row).lowStock.length }">{{ supplierInsight(row).lowStock.length ? `${supplierInsight(row).lowStock.length} 项待补货` : '库存正常' }}</small></div></template></el-table-column>
-        <el-table-column label="履约表现" min-width="145"><template #default="{ row }"><div class="supplier-performance"><span><strong>{{ row.fulfillment }}%</strong><small>{{ row.score }}</small></span><i><b :style="{ width: `${row.fulfillment}%` }" /></i></div></template></el-table-column>
-        <el-table-column label="资质状态" min-width="130"><template #default="{ row }"><span class="supplier-license-chip" :class="licenseStatus(row)">{{ licenseLabel(row) }}</span></template></el-table-column>
-        <el-table-column label="合作状态" width="150"><template #default="{ row }"><div class="supplier-status-switch"><el-switch :model-value="row.status === '激活'" inline-prompt active-text="开" inactive-text="关" :loading="statusSavingIds.has(row.id)" @change="toggleSupplierFromSwitch(row, $event)" /><span :class="row.status === '激活' ? 'active' : 'inactive'"><strong>{{ row.status === '激活' ? '合作中' : '已停用' }}</strong><small>{{ row.status === '激活' ? '允许采购' : '暂停采购' }}</small></span></div></template></el-table-column>
-        <el-table-column label="操作" width="178"><template #default="{ row }"><div class="table-row-actions supplier-row-actions"><button type="button" class="table-action-link" @click="openDetail(row)">查看</button><button type="button" class="table-action-link secondary" @click="resetForm(row)">编辑</button><el-dropdown trigger="click" popper-class="table-action-menu" @command="handleAction($event, row)"><el-button class="table-more-button" circle aria-label="更多操作"><AppIcon name="more" /></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="delete" class="danger-text">删除供应商</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></template></el-table-column>
+        <el-table-column label="供应商" min-width="235"><template #default="{ row }"><button type="button" class="supplier-name-cell supplier-name-button" @click="openDetail(row)"><span class="supplier-avatar">{{ row.name.charAt(0) }}</span><span><strong>{{ row.name }}</strong><small>{{ row.category }}</small></span></button></template></el-table-column>
+        <el-table-column label="供货概况" min-width="150"><template #default="{ row }"><div class="supplier-supply-cell"><strong>{{ supplierInsight(row).items.length }} 项原料</strong><small :class="{ danger: supplierInsight(row).lowStock.length }"><i />{{ supplierInsight(row).lowStock.length ? `${supplierInsight(row).lowStock.length} 项待补货` : '库存正常' }}</small></div></template></el-table-column>
+        <el-table-column label="履约与资质" min-width="210"><template #default="{ row }"><div class="supplier-compliance-cell"><div class="supplier-performance"><span><strong>{{ row.fulfillment }}%</strong><small>质量 {{ row.score }}</small></span><i><b :style="{ width: `${row.fulfillment}%` }" /></i></div><span class="supplier-license-chip" :class="licenseStatus(row)">{{ licenseLabel(row) }}</span></div></template></el-table-column>
+        <el-table-column label="合作状态" width="145"><template #default="{ row }"><div class="supplier-status-switch"><el-switch :model-value="row.status === '激活'" inline-prompt active-text="开" inactive-text="关" :loading="statusSavingIds.has(row.id)" @change="toggleSupplierFromSwitch(row, $event)" /><span :class="row.status === '激活' ? 'active' : 'inactive'"><strong>{{ row.status === '激活' ? '合作中' : '已停用' }}</strong><small>{{ row.status === '激活' ? '允许采购' : '暂停采购' }}</small></span></div></template></el-table-column>
+        <el-table-column label="操作" width="160" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><div class="table-row-actions supplier-row-actions"><button type="button" class="table-action-link" @click="openDetail(row)">查看</button><button type="button" class="table-action-link secondary" @click="resetForm(row)">编辑</button><el-dropdown trigger="click" popper-class="table-action-menu" @command="handleAction($event, row)"><button type="button" class="table-action-link supplier-more-link" aria-label="更多操作"><AppIcon name="more" /></button><template #dropdown><el-dropdown-menu><el-dropdown-item command="delete" class="danger-text">删除供应商</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></template></el-table-column>
       </el-table>
       <footer class="member-table-footer"><span>{{ supplierRange }}</span><el-pagination v-model:current-page="supplierPage" background layout="prev, pager, next" :page-size="pageSize" :total="filteredSuppliers.length" :pager-count="5" /></footer>
     </div>
   </div>
 
-  <el-drawer v-model="formVisible" class="supplier-drawer" size="560px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">供应商档案</span><h2>{{ editingSupplier ? '编辑供应商' : '新增供应商' }}</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="formVisible = false"><AppIcon name="close" /></el-button></div>
+  <el-drawer v-model="formVisible" class="supplier-drawer" size="540px" :with-header="false">
+    <div class="modal-header"><div><h2>{{ editingSupplier ? '编辑供应商' : '新增供应商' }}</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="formVisible = false"><AppIcon name="close" /></el-button></div>
     <el-form label-position="top" @submit.prevent="saveSupplier">
-      <div class="form-row"><el-form-item label="供应商名称"><el-input v-model="supplierForm.name" placeholder="须与原料供货来源一致" /></el-form-item><el-form-item label="供应品类"><el-select v-model="supplierForm.category"><el-option v-for="item in CATEGORY_OPTIONS" :key="item" :label="item" :value="item" /></el-select></el-form-item></div>
+      <el-form-item label="供应商名称"><el-input v-model="supplierForm.name" placeholder="须与原料供货来源一致" /></el-form-item>
       <el-form-item label="地址"><el-input v-model="supplierForm.address" placeholder="输入供应商地址" /></el-form-item>
+      <div class="form-row"><el-form-item label="供应品类"><el-select v-model="supplierForm.category" popper-class="store-region-dropdown"><el-option v-for="item in CATEGORY_OPTIONS" :key="item" :label="item" :value="item" /></el-select></el-form-item><el-form-item label="合作状态"><el-select v-model="supplierForm.status" popper-class="store-region-dropdown"><el-option label="合作中（允许采购）" value="激活" /><el-option label="已停用（暂停采购）" value="停用" /></el-select></el-form-item></div>
       <div class="form-row"><el-form-item label="联系人"><el-input v-model="supplierForm.contact" /></el-form-item><el-form-item label="联系电话"><el-input v-model="supplierForm.phone" /></el-form-item></div>
-      <div class="form-row"><el-form-item label="质量等级"><el-select v-model="supplierForm.score"><el-option v-for="item in ['A+','A','B','C']" :key="item" :label="item" :value="item" /></el-select></el-form-item><el-form-item label="到货履约率"><el-input-number v-model="supplierForm.fulfillment" :min="0" :max="100" controls-position="right" /></el-form-item></div>
+      <div class="form-row"><el-form-item label="质量等级"><el-select v-model="supplierForm.score" popper-class="store-region-dropdown"><el-option v-for="item in ['A+','A','B','C']" :key="item" :label="item" :value="item" /></el-select></el-form-item><el-form-item label="到货履约率（%）"><el-input-number v-model="supplierForm.fulfillment" :min="0" :max="100" :controls="false" /></el-form-item></div>
       <div class="form-row"><el-form-item label="许可证号"><el-input v-model="supplierForm.licenseNo" /></el-form-item><el-form-item label="资质有效期"><el-date-picker v-model="supplierForm.licenseExpiry" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" /></el-form-item></div>
-      <el-form-item label="合作状态"><el-select v-model="supplierForm.status"><el-option label="合作中（允许采购）" value="激活" /><el-option label="已停用（暂停采购）" value="停用" /></el-select></el-form-item>
       <p class="supplier-form-tip">保存后将按供应商名称同步关联原料；修改名称时，现有供货关系会自动迁移。</p>
       <div class="drawer-actions"><el-button @click="formVisible = false">取消</el-button><el-button type="primary" :loading="saving" @click="saveSupplier">{{ editingSupplier ? '保存并同步' : '建档并关联' }}</el-button></div>
     </el-form>
   </el-drawer>
 
   <el-drawer v-model="detailVisible" class="supplier-detail-drawer" size="520px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">供应链视图</span><h2>{{ detailSupplier?.name }}</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="detailVisible = false"><AppIcon name="close" /></el-button></div>
+    <div class="modal-header"><div><h2>{{ detailSupplier?.name }}</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="detailVisible = false"><AppIcon name="close" /></el-button></div>
     <div v-if="detailSupplier" class="supplier-detail">
       <div class="supplier-detail-top"><span class="supplier-status" :class="detailSupplier.status === '激活' ? 'active' : 'inactive'"><i />{{ detailSupplier.status }}</span><span class="supplier-detail-score">质量 {{ detailSupplier.score }} · 履约 {{ detailSupplier.fulfillment }}%</span></div>
       <dl class="supplier-detail-meta"><div><dt>供应品类</dt><dd>{{ detailSupplier.category }}</dd></div><div><dt>关联原料</dt><dd>{{ supplierInsight(detailSupplier).items.length }} 项</dd></div><div><dt>联系人</dt><dd>{{ detailSupplier.contact }}</dd></div><div><dt>联系电话</dt><dd>{{ detailSupplier.phone }}</dd></div></dl>
@@ -411,7 +410,7 @@ function exportSuppliers() {
   </el-drawer>
 
   <el-drawer v-model="licenseVisible" class="supplier-license-drawer" size="560px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">资质管理</span><h2>待处理供应资质</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="licenseVisible = false"><AppIcon name="close" /></el-button></div>
+    <div class="modal-header"><div><h2>待处理供应资质</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="licenseVisible = false"><AppIcon name="close" /></el-button></div>
     <p class="supplier-license-tip">过期供应商应暂停采购；续期后有效期自当前有效期或今日起延长一年。</p>
     <div class="supplier-license-list"><div v-for="item in licenseAlerts" :key="item.id" class="supplier-license-item" :class="licenseStatus(item)"><span class="supplier-avatar">{{ item.name.charAt(0) }}</span><div class="supplier-license-info"><strong>{{ item.name }}</strong><small>{{ item.licenseNo }} · {{ formatDate(item.licenseExpiry) }}</small></div><span class="supplier-license-chip" :class="licenseStatus(item)">{{ licenseLabel(item) }}</span><el-button class="supplier-renew-button" @click="renewLicense(item)">续期</el-button></div></div>
     <div class="drawer-actions"><el-button @click="licenseVisible = false">取消</el-button><el-button type="primary" :loading="saving" :disabled="!licenseAlerts.length" @click="renewAllLicenses">全部续期</el-button></div>
@@ -422,9 +421,9 @@ function exportSuppliers() {
 .module-live-status.has-risk { color: #a15d22; border-color: rgba(207, 147, 77, .35); }
 .module-live-status.has-risk i { background: #e29a42; box-shadow: 0 0 0 4px rgba(226, 154, 66, .12); }
 .supplier-content { gap: 20px; padding: 34px 32px 42px; background: radial-gradient(circle at 89% 3%, rgba(196,220,242,.4), transparent 31%), radial-gradient(circle at 28% 83%, rgba(180,222,210,.2), transparent 35%), transparent; }
-.supplier-content .module-page-heading { min-height: 92px; align-items: center; margin: 0; }
-.supplier-content .module-page-heading h1 { color: #173f32; font-size: 32px; }
-.supplier-content .module-page-heading p { color: #71847c; }
+.supplier-content .module-page-heading { min-height: 0; align-items: flex-start; margin: 0; }
+.supplier-content .module-page-heading h1 { margin: 0; color: #173f32; font-size: 30px; line-height: 1.2; letter-spacing: -.035em; }
+.supplier-content .module-page-heading p { margin: 8px 0 0; color: #647068; font-size: 14px; line-height: normal; }
 .supplier-content .module-live-status { margin: 0; padding: 10px 14px; border-color: rgba(232,154,129,.38); background: linear-gradient(145deg, rgba(255,245,240,.72), rgba(247,226,224,.56)); color: #b36a57; box-shadow: 0 12px 25px rgba(165,88,70,.1), 0 1px 0 rgba(255,255,255,.9) inset; }
 .supplier-content .module-live-status i { background: #f19b7f; box-shadow: 0 0 0 4px rgba(241,155,127,.13); }
 .supplier-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
@@ -444,41 +443,52 @@ function exportSuppliers() {
 .supplier-qualification-art { position: absolute !important; right: 9px; bottom: 15px; z-index: 1 !important; color: inherit !important; font-size: 59px !important; font-weight: 400 !important; letter-spacing: -22px; filter: drop-shadow(0 11px 12px rgba(119,93,56,.13)); transform: rotate(-4deg); }
 .supplier-list-toolbar { min-height: 70px; padding: 10px 14px; border: 1px solid rgba(255,255,255,.76) !important; border-radius: 21px !important; background: radial-gradient(circle at 10% 0%, rgba(255,255,255,.8), transparent 35%), linear-gradient(145deg, rgba(255,255,255,.58), rgba(216,236,243,.34)) !important; box-shadow: 0 18px 38px rgba(55,90,94,.085), 0 1px 0 rgba(255,255,255,.96) inset !important; backdrop-filter: blur(24px) saturate(1.24); }
 .supplier-status-filter > span { color: #38544a; font-size: 13px; font-weight: 760; }
-.supplier-tabs { padding: 4px; border-radius: 13px; background: rgba(224,234,237,.68); }
-.supplier-tabs button { display: inline-flex; align-items: center; gap: 7px; padding: 0 14px; }
-.supplier-tabs button.active { background: rgba(255,255,255,.84); color: #278362; box-shadow: 0 7px 16px rgba(55,104,90,.09), 0 1px 0 rgba(255,255,255,.92) inset; }
+.supplier-tabs { display: inline-flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid rgba(255,255,255,.76); border-radius: 14px; background: linear-gradient(145deg, rgba(208,229,237,.42), rgba(255,255,255,.3)); box-shadow: 0 8px 18px rgba(56,91,102,.055) inset, 0 1px 0 rgba(255,255,255,.9); }
+.supplier-tabs button { min-width: 64px; height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid transparent; border-radius: 10px; color: #62787c; background: transparent; font-size: 12px; font-weight: 720; transition: color .18s ease, background .18s ease, box-shadow .18s ease; }
+.supplier-tabs button:hover { color: #39766c; background: rgba(255,255,255,.38); }
+.supplier-tabs button.active { border-color: rgba(255,255,255,.9); color: #286f65; background: radial-gradient(circle at 24% 0%, rgba(255,255,255,.95), transparent 50%), linear-gradient(145deg, rgba(224,244,242,.86), rgba(203,225,239,.7)); box-shadow: 0 7px 15px rgba(50,99,108,.08), 0 1px 0 rgba(255,255,255,.98) inset; font-weight: 800; }
 .supplier-tabs button b { min-width: 20px; height: 20px; display: grid; place-items: center; padding: 0 5px; border-radius: 999px; color: #7b8981; background: rgba(255,255,255,.75); font-size: 10.5px; }
 .supplier-tabs button.active b { color: #fff; background: #218952; }
 .supplier-toolbar-actions :deep(.member-ghost-button.el-button), .supplier-toolbar-actions :deep(.member-primary-button.el-button) { height: 46px; border-radius: 14px; }
 .supplier-toolbar-actions :deep(.member-ghost-button.el-button) { border-color: rgba(112,169,157,.3); background: rgba(255,255,255,.38); color: #4d7067; box-shadow: 0 8px 18px rgba(53,91,91,.06), 0 1px 0 rgba(255,255,255,.86) inset; }
 .supplier-toolbar-actions :deep(.member-primary-button.el-button) { border: 1px solid rgba(255,255,255,.62); background: linear-gradient(135deg, rgba(49,182,132,.97), rgba(46,134,132,.94)); box-shadow: 0 13px 25px rgba(37,137,117,.22), 0 1px 0 rgba(255,255,255,.4) inset; }
-.supplier-content > .member-table-card { min-height: 480px; border: 1px solid rgba(255,255,255,.76) !important; border-radius: 23px !important; background: radial-gradient(circle at 14% 0%, rgba(255,255,255,.76), transparent 32%), linear-gradient(145deg, rgba(255,255,255,.58), rgba(220,237,244,.34)) !important; box-shadow: 0 22px 48px rgba(54,89,94,.1), 0 1px 0 rgba(255,255,255,.96) inset !important; backdrop-filter: blur(28px) saturate(1.25); }
+.supplier-content > .member-table-card { min-height: 530px; border: 1px solid rgba(255,255,255,.76) !important; border-radius: 23px !important; background: radial-gradient(circle at 14% 0%, rgba(255,255,255,.76), transparent 32%), linear-gradient(145deg, rgba(255,255,255,.58), rgba(220,237,244,.34)) !important; box-shadow: 0 22px 48px rgba(54,89,94,.1), 0 1px 0 rgba(255,255,255,.96) inset !important; backdrop-filter: blur(28px) saturate(1.25); }
 .supplier-table { --el-table-header-bg-color: transparent !important; --el-table-row-hover-bg-color: rgba(232,247,242,.5) !important; --el-table-border-color: rgba(113,155,164,.17) !important; --el-table-bg-color: transparent; --el-table-tr-bg-color: transparent; background: transparent; }
 .supplier-table :deep(.el-table__inner-wrapper), .supplier-table :deep(.el-table__header-wrapper), .supplier-table :deep(.el-table__body-wrapper) { background: transparent; }
 .supplier-table :deep(.el-table__header-wrapper th.el-table__cell) { height: 58px; background: linear-gradient(180deg, rgba(213,232,244,.58), rgba(218,236,242,.35)); color: #607785; }
-.supplier-table :deep(.el-table__body-wrapper td.el-table__cell) { height: 76px; }
+.supplier-table :deep(.el-table__body-wrapper td.el-table__cell) { height: 70px; }
+.supplier-table :deep(.el-table__body tr:nth-child(even) td.el-table__cell) { background: rgba(226,234,239,.28); }
 .supplier-content :deep(.member-table-footer) { min-height: 68px; background: rgba(255,255,255,.12); }
 .supplier-name-button { width: 100%; padding: 0; border: 0; background: none; text-align: left; }
 .supplier-name-button:hover strong { color: #087824; }
-.supplier-name-button .supplier-avatar { width: 42px; height: 42px; border-radius: 13px; background: linear-gradient(145deg, rgba(219,238,246,.92), rgba(230,241,245,.72)); color: #456979; box-shadow: inset 0 0 0 1px rgba(101,153,166,.09); }
+.supplier-name-button .supplier-avatar { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(145deg, rgba(219,238,246,.92), rgba(230,241,245,.72)); color: #456979; box-shadow: inset 0 0 0 1px rgba(101,153,166,.09); }
+.supplier-name-button strong { line-height: 1.35; }
+.supplier-name-button small { margin-top: 3px; line-height: 1.3; }
 .supplier-supply-cell strong, .supplier-supply-cell small { display: block; }
 .supplier-supply-cell strong { color: #263c31; font-size: 13.5px; }
-.supplier-supply-cell small { margin-top: 4px; color: #5f8a71; font-size: 12px; }
+.supplier-supply-cell small { display: flex; align-items: center; gap: 6px; margin-top: 7px; color: #5f8a71; font-size: 11.5px; }
+.supplier-supply-cell small i { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: #54af7d; box-shadow: 0 0 0 3px rgba(84,175,125,.1); }
 .supplier-supply-cell small.danger { color: #c16b28; }
-.supplier-performance > span { display: flex; align-items: baseline; justify-content: space-between; width: 105px; }
-.supplier-performance strong { color: #294238; font-size: 14px; }
-.supplier-performance small { color: #3c8a65; font-size: 12px; font-weight: 750; }
-.supplier-performance > i { width: 105px; height: 5px; display: block; margin-top: 7px; border-radius: 9px; background: #e8efeb; overflow: hidden; }
+.supplier-supply-cell small.danger i { background: #dc8b42; box-shadow: 0 0 0 3px rgba(220,139,66,.12); }
+.supplier-compliance-cell { display: flex; align-items: center; gap: 15px; }
+.supplier-performance { flex: 0 0 92px; }
+.supplier-performance > span { display: flex; align-items: baseline; justify-content: space-between; width: 92px; }
+.supplier-performance strong { color: #294238; font-size: 14px; line-height: 1; }
+.supplier-performance small { color: #5d7c6d; font-size: 10.5px; font-weight: 720; white-space: nowrap; }
+.supplier-performance > i { width: 92px; height: 5px; display: block; margin-top: 8px; border-radius: 9px; background: rgba(202,218,211,.58); overflow: hidden; }
 .supplier-performance > i b { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, #65bd8e, #23875d); }
+.supplier-compliance-cell .supplier-license-chip { flex: 0 0 auto; padding: 5px 9px; font-size: 11px; }
 .supplier-status-switch { display: flex; align-items: center; gap: 9px; }
 .supplier-status-switch :deep(.el-switch) { --el-switch-on-color: #24935c; --el-switch-off-color: #bdc6c1; }
 .supplier-status-switch > span strong, .supplier-status-switch > span small { display: block; white-space: nowrap; }
 .supplier-status-switch > span strong { color: #2e4b3d; font-size: 12.5px; }
 .supplier-status-switch > span small { margin-top: 2px; color: #87938c; font-size: 10.5px; }
 .supplier-status-switch > span.inactive strong { color: #89938e; }
-.supplier-row-actions { gap: 5px; }
-.table-action-link.secondary { color: #6d7f75; }
-.supplier-form-tip { margin: 4px 0 0; padding: 11px 13px; border-radius: 10px; color: #527064; background: #f0f7f3; font-size: 12px; line-height: 1.5; }
+.supplier-row-actions { flex-wrap: nowrap; gap: 14px; }
+.supplier-row-actions .table-action-link.secondary { color: #087824; }
+.supplier-more-link { width: 20px; height: 24px; display: inline-flex; align-items: center; justify-content: center; color: #6f8077; }
+.supplier-more-link :deep(svg) { width: 17px; height: 17px; }
+.supplier-form-tip { margin: 2px 0 0; padding: 12px 0 0; border-top: 1px solid rgba(118,163,175,.2); border-radius: 0; color: #61777d; background: transparent; font-size: 11px; line-height: 1.5; }
 .supplier-detail-supply { padding-top: 16px; border-top: 1px solid #edf2ef; }
 .supplier-detail-supply > div { display: flex; align-items: center; justify-content: space-between; }
 .supplier-detail-supply h3 { margin: 0; color: #223a2f; font-size: 15px; }

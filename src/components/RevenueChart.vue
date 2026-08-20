@@ -110,6 +110,7 @@ function buildFullOption({ animateUpdate = false } = {}) {
       type: 'value',
       min: 0,
       max,
+      interval: max / 4,
       splitNumber: 4,
       axisLabel: {
         show: true,
@@ -154,7 +155,7 @@ function buildUpdatePatch() {
     animationDurationUpdate: updateDuration,
     animationEasingUpdate: 'cubicOut',
     xAxis: { data: props.labels },
-    yAxis: { max },
+    yAxis: { max, interval: max / 4 },
     series: [{
       id: 'revenue-line',
       type: 'line',

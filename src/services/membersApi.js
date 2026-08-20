@@ -15,6 +15,7 @@ export function mapMemberRow(row) {
     points: row.points,
     balance: Number(row.balance),
     spent: Number(row.spent),
+    status: row.status || '正常',
     joined: formatJoined(row.joined_on),
     portraitIndex: row.portrait_index ?? 0,
   }
@@ -40,6 +41,7 @@ function payload(row) {
     points: Math.round(Number(row.points) || 0),
     balance: Number(row.balance) || 0,
     spent: Number(row.spent) || 0,
+    status: row.status || '正常',
     portrait_index: Number(row.portraitIndex) || 0,
   }
 }
@@ -61,5 +63,10 @@ export async function updateMemberBalance(client, id, balance) {
 
 export async function updateMember(client, id, fields) {
   const { error } = await client.from('members').update(fields).eq('id', id)
+  if (error) throw error
+}
+
+export async function setMemberStatus(client, id, status) {
+  const { error } = await client.from('members').update({ status }).eq('id', id)
   if (error) throw error
 }

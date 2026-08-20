@@ -41,6 +41,11 @@ function handleLogin(user) {
   if (!useBackend) localStorage.setItem(AUTH_KEY, JSON.stringify(user))
 }
 
+function updateCurrentUser(patch) {
+  currentUser.value = { ...currentUser.value, ...patch }
+  if (!useBackend) localStorage.setItem(AUTH_KEY, JSON.stringify(currentUser.value))
+}
+
 async function logout() {
   if (useBackend && supabase) await supabase.auth.signOut()
   currentUser.value = null
@@ -49,6 +54,7 @@ async function logout() {
 }
 
 provide('authLogout', logout)
+provide('authUpdateUser', updateCurrentUser)
 </script>
 
 <template>

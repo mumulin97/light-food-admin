@@ -13,7 +13,7 @@ const seedMembers = [
   ['郑雅文', '152-6677-8899', '钻石会员', 13200, 320.00, 3890.00, '2022年08月19日'],
   ['何晓东', '133-4455-6677', '黄金会员', 5600, 66.00, 1450.00, '2023年07月07日'],
   ['冯佳怡', '189-1122-3344', '白银会员', 1750, 18.00, 540.00, '2024年04月22日'],
-].map(([name, phone, tier, points, balance, spent, joined], index) => ({ id: index + 1, name, phone, tier, points, balance, spent, joined, portraitIndex: index % 6 }))
+].map(([name, phone, tier, points, balance, spent, joined], index) => ({ id: index + 1, name, phone, tier, points, balance, spent, joined, status: '正常', portraitIndex: index % 6 }))
 
 export const memberStore = reactive({
   members: seedMembers,
@@ -39,6 +39,7 @@ export function accrueForOrder(order) {
   if (!order?.memberId) return null
   const member = findMember(order.memberId)
   if (!member) return null
+  if ((member.status || '正常') !== '正常') return null
 
   const gainedPoints = Math.round(order.amount * POINTS_PER_YUAN)
   member.points += gainedPoints

@@ -68,6 +68,7 @@ const orderFilter = ref('全部')
 const orderFormLoading = ref(false)
 
 const orderForm = reactive({ customer: '', memberId: null, product: '抹茶能量碗', quantity: 1, method: '堂食', note: '' })
+const activeOrderMembers = computed(() => memberStore.members.filter(member => (member.status || '正常') === '正常'))
 
 const productPrices = { 抹茶能量碗: 45, 牛油果高纤卷: 36, 藜麦田园沙拉: 34, 冷萃燕麦杯: 28 }
 const productPriceMap = computed(() =>
@@ -76,6 +77,10 @@ const productPriceMap = computed(() =>
     : productPrices,
 )
 const productCatalog = computed(() => Object.keys(productPriceMap.value))
+const selectedMemberLabel = computed(() => {
+  const member = orderForm.memberId ? findMember(orderForm.memberId) : null
+  return member ? `${member.name} · ${member.tier}` : '散客订单'
+})
 const orderPricing = computed(() => {
   try {
     const base = computeOrderAmount([[orderForm.product, orderForm.quantity]], productPriceMap.value)
@@ -89,7 +94,7 @@ const orderPricing = computed(() => {
 
 const topSearchPlaceholder = computed(() => {
   const match = navRoutes.find(item => item.name === route.name)
-  return match?.searchPlaceholder || '搜索...'
+  return match?.searchPlaceholder || route.meta.searchPlaceholder || '搜索...'
 })
 
 const isDashboard = computed(() => route.name === 'dashboard')
@@ -179,6 +184,14 @@ async function trackCampaignConversion(offer) {
 
 function success(message, customClass = 'light-bites-message') {
   ElMessage({ message, type: 'success', customClass, duration: 2400 })
+}
+
+function handleProfileCommand(command) {
+  if (command === '退出登录') {
+    logout()
+    return
+  }
+  router.push(command === '个人资料' ? '/profile' : '/account')
 }
 
 function onStoresChanged() {
@@ -279,6 +292,11 @@ async function createOrder() {
   if (orderCreating.value) return
   if (!orderForm.customer.trim()) {
     ElMessage({ message: '请输入顾客姓名', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
+    return
+  }
+  const selectedMember = orderForm.memberId ? findMember(orderForm.memberId) : null
+  if (selectedMember && (selectedMember.status || '正常') !== '正常') {
+    ElMessage({ message: '冻结或已注销会员不能关联新订单', type: 'warning', customClass: 'light-bites-message', duration: 2600 })
     return
   }
   const prices = productPriceMap.value
@@ -386,45 +404,10 @@ onBeforeUnmount(() => {
     <aside id="sidebar" class="sidebar" :class="{ open: sidebarOpen, collapsed: sidebarCollapsed }" aria-label="主要导航">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">
-          <svg class="houhou-brand-icon" viewBox="0 0 64 64">
-            <defs>
-              <linearGradient id="houhouFur" x1="17" y1="7" x2="45" y2="42" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#B87847"/>
-                <stop offset="1" stop-color="#75432B"/>
-              </linearGradient>
-              <linearGradient id="houhouFace" x1="22" y1="15" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#FFF3D7"/>
-                <stop offset="1" stop-color="#F2C987"/>
-              </linearGradient>
-              <linearGradient id="houhouBowl" x1="13" y1="41" x2="51" y2="61" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#54C79E"/>
-                <stop offset=".55" stop-color="#2AA57F"/>
-                <stop offset="1" stop-color="#19745F"/>
-              </linearGradient>
-            </defs>
-            <circle cx="14.5" cy="27" r="7.5" fill="url(#houhouFur)"/>
-            <circle cx="49.5" cy="27" r="7.5" fill="url(#houhouFur)"/>
-            <circle cx="32" cy="26.5" r="19.5" fill="url(#houhouFur)"/>
-            <path d="M32 15.2c-4.8-5.4-13.4-1.2-12.6 6.6.3 3.1 1.9 5.1 4 6.6-1.6 6.4 2.8 12.1 8.6 12.1s10.2-5.7 8.6-12.1c2.1-1.5 3.7-3.5 4-6.6.8-7.8-7.8-12-12.6-6.6Z" fill="url(#houhouFace)"/>
-            <ellipse cx="26.3" cy="26" rx="2" ry="2.5" fill="#35231D"/>
-            <ellipse cx="37.7" cy="26" rx="2" ry="2.5" fill="#35231D"/>
-            <circle cx="25.7" cy="25.2" r=".65" fill="white"/>
-            <circle cx="37.1" cy="25.2" r=".65" fill="white"/>
-            <path d="M29.8 31.1c1.2-1 3.2-1 4.4 0-.3 1.6-1 2.4-2.2 2.4s-1.9-.8-2.2-2.4Z" fill="#98523E"/>
-            <path d="M28.6 35.2c2 1.7 4.8 1.7 6.8 0" fill="none" stroke="#6E3D30" stroke-width="1.5" stroke-linecap="round"/>
-            <path d="M13 42.5h38c-1.3 11.3-7.8 17-19 17s-17.7-5.7-19-17Z" fill="url(#houhouBowl)"/>
-            <path d="M11.5 42.7c0-2.4 1.9-4.3 4.3-4.3h32.4c2.4 0 4.3 1.9 4.3 4.3H11.5Z" fill="#E7FFF4"/>
-            <path d="M18.2 39.2c-2.3-4.9 1.1-8.3 5.8-7.6.2 4.2-1.7 6.8-5.8 7.6Z" fill="#58BE75"/>
-            <path d="M25 39.2c-.4-5.8 4.4-8.5 8.5-6.3-1.1 4.2-3.8 6.4-8.5 6.3Z" fill="#8BD36B"/>
-            <path d="M34.5 39.2c1-5.5 6-7 9.3-3.9-2 3.6-5 4.9-9.3 3.9Z" fill="#3EAE83"/>
-            <circle cx="23.2" cy="39.4" r="2.1" fill="#F29A69"/>
-            <circle cx="40.9" cy="39.5" r="1.9" fill="#F2C85B"/>
-            <path d="M21 50.2c6.7 2.8 15.3 2.8 22 0" fill="none" stroke="rgba(255,255,255,.58)" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
+          <img class="project-brand-logo" src="/brand-assets/monkey-kitchen-logo-v2.png" alt="" />
         </div>
         <div class="brand-text">
-          <strong><span>猴猴</span><b>美食园</b></strong>
-          <small><i aria-hidden="true"/>餐饮管理后台</small>
+          <img class="project-brand-wordmark" src="/brand-assets/monkey-kitchen-wordmark-v5.png" alt="Monkey Kitchen" />
         </div>
       </div>
       <button class="sidebar-toggle" aria-label="切换侧边栏" @click="sidebarCollapsed = !sidebarCollapsed"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
@@ -473,8 +456,8 @@ onBeforeUnmount(() => {
 
           <el-button class="icon-button settings-button" circle aria-label="设置" @click="settingsVisible = true"><AppIcon name="settings"/></el-button>
           <span class="topbar-divider" />
-          <el-dropdown trigger="click" popper-class="profile-dropdown" @command="$event === '退出登录' ? logout() : success(`已打开${$event}`)">
-            <button class="profile-button"><span class="profile-copy"><strong>{{ currentUser?.name }}</strong><small>{{ currentUser?.role }}</small></span><span class="avatar">{{ currentUser?.name?.charAt(0) }}</span></button>
+          <el-dropdown trigger="click" popper-class="profile-dropdown" @command="handleProfileCommand">
+            <button class="profile-button"><span class="profile-copy"><strong>{{ currentUser?.name }}</strong><small>{{ currentUser?.role }}</small></span><span class="avatar"><img :src="currentUser?.avatar || '/brand-assets/monkey-kitchen-avatar-front.png'" alt="用户头像" /></span></button>
             <template #dropdown><el-dropdown-menu><el-dropdown-item command="个人资料">个人资料</el-dropdown-item><el-dropdown-item command="账号与权限">账号与权限</el-dropdown-item><el-dropdown-item divided command="退出登录" class="danger-text">退出登录</el-dropdown-item></el-dropdown-menu></template>
           </el-dropdown>
         </div>
@@ -496,45 +479,62 @@ onBeforeUnmount(() => {
   </div>
 
   <el-drawer v-model="orderDialogVisible" class="order-form-drawer" size="540px" :with-header="false" append-to-body :close-on-click-modal="!orderCreating" :close-on-press-escape="!orderCreating">
-    <div class="modal-header"><div><span class="eyebrow">订单档案</span><h2>新建订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="orderDialogVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header order-form-header"><div><h2>新建订单</h2><p>填写顾客与商品信息，创建后自动进入待处理队列。</p></div><el-button class="icon-button" circle aria-label="关闭" @click="orderDialogVisible = false"><AppIcon name="close"/></el-button></div>
     <div class="order-form-content">
       <div v-if="orderFormLoading" class="order-form-loading-status" role="status"><i aria-hidden="true"/><span>正在同步商品与会员数据</span></div>
+      <div class="order-context-strip">
+        <span class="order-context-icon"><AppIcon name="store"/></span>
+        <div><small>接单门店</small><strong>{{ selectedStore }}</strong></div>
+        <span class="order-context-status"><i/>创建后待处理</span>
+      </div>
       <el-form label-position="top" class="order-create-form" @submit.prevent="createOrder">
-        <div class="form-row order-form-row-member">
-          <el-form-item label="顾客姓名"><el-input v-model="orderForm.customer" placeholder="输入顾客姓名"/></el-form-item>
-          <el-form-item label="关联会员" class="order-member-field">
-            <el-select v-model="orderForm.memberId" placeholder="散客（不累计积分）" clearable filterable :max-height="240" placement="bottom-start" :teleported="true" popper-class="order-form-popper" :popper-options="{ strategy: 'fixed' }" @change="selectOrderMember">
-              <el-option v-for="member in memberStore.members" :key="member.id" :label="`${member.name} · ${member.tier}`" :value="member.id"/>
+        <section class="order-form-section">
+          <header class="order-form-section-head"><div><strong>顾客信息</strong><small>关联会员后可累计积分并匹配活动</small></div><b>{{ selectedMemberLabel }}</b></header>
+          <div class="form-row order-form-row-member">
+            <el-form-item label="顾客姓名"><el-input v-model="orderForm.customer" placeholder="输入顾客姓名"/></el-form-item>
+            <el-form-item label="关联会员" class="order-member-field">
+              <el-select v-model="orderForm.memberId" placeholder="散客（不累计积分）" clearable filterable :max-height="240" placement="bottom-start" :teleported="true" popper-class="order-form-popper" :popper-options="{ strategy: 'fixed' }" @change="selectOrderMember">
+                <el-option v-for="member in activeOrderMembers" :key="member.id" :label="`${member.name} · ${member.tier}`" :value="member.id"/>
+              </el-select>
+            </el-form-item>
+          </div>
+        </section>
+
+        <section class="order-form-section">
+          <header class="order-form-section-head"><div><strong>订单内容</strong><small>选择商品、数量和就餐方式</small></div></header>
+          <el-form-item label="选择产品">
+            <el-select v-model="orderForm.product" :max-height="240" :teleported="true" popper-class="order-form-popper" :popper-options="{ strategy: 'fixed' }">
+              <el-option v-for="product in productCatalog" :key="product" :label="product" :value="product"/>
             </el-select>
           </el-form-item>
-        </div>
-        <el-form-item label="选择产品">
-          <el-select v-model="orderForm.product" :max-height="240" :teleported="true" popper-class="order-form-popper" :popper-options="{ strategy: 'fixed' }">
-            <el-option v-for="product in productCatalog" :key="product" :label="product" :value="product"/>
-          </el-select>
-        </el-form-item>
-        <div class="form-row">
-          <el-form-item label="数量"><div class="quantity-stepper"><el-button class="quantity-step-button" aria-label="减少数量" :disabled="orderForm.quantity <= 1" @click="decreaseQuantity"><i class="quantity-glyph quantity-glyph--minus" aria-hidden="true"/></el-button><el-input-number v-model="orderForm.quantity" :min="1" :max="20" :controls="false" aria-label="订单数量"/><el-button class="quantity-step-button" aria-label="增加数量" :disabled="orderForm.quantity >= 20" @click="increaseQuantity"><i class="quantity-glyph quantity-glyph--plus" aria-hidden="true"/></el-button></div></el-form-item>
-          <el-form-item label="就餐方式">
-            <el-select v-model="orderForm.method" :teleported="true" popper-class="order-form-popper" :popper-options="{ strategy: 'fixed' }">
-              <el-option v-for="method in ['堂食','外带','外卖']" :key="method" :label="method" :value="method"/>
-            </el-select>
-          </el-form-item>
-        </div>
-        <el-form-item label="备注"><el-input v-model="orderForm.note" type="textarea" :rows="3" placeholder="过敏信息、口味偏好等"/></el-form-item>
+          <div class="form-row order-fulfillment-row">
+            <el-form-item label="数量"><div class="quantity-stepper"><el-button class="quantity-step-button" aria-label="减少数量" :disabled="orderForm.quantity <= 1" @click="decreaseQuantity"><i class="quantity-glyph quantity-glyph--minus" aria-hidden="true"/></el-button><el-input-number v-model="orderForm.quantity" :min="1" :max="20" :controls="false" aria-label="订单数量"/><el-button class="quantity-step-button" aria-label="增加数量" :disabled="orderForm.quantity >= 20" @click="increaseQuantity"><i class="quantity-glyph quantity-glyph--plus" aria-hidden="true"/></el-button></div></el-form-item>
+            <el-form-item label="就餐方式">
+              <div class="order-method-tabs" role="group" aria-label="就餐方式"><button v-for="method in ['堂食','外带','外卖']" :key="method" type="button" :class="{ active: orderForm.method === method }" @click="orderForm.method = method">{{ method }}</button></div>
+            </el-form-item>
+          </div>
+        </section>
+
+        <section class="order-form-section order-note-section">
+          <header class="order-form-section-head"><div><strong>订单备注</strong><small>记录过敏信息、口味偏好或配送要求</small></div></header>
+          <el-form-item><el-input v-model="orderForm.note" type="textarea" :rows="2" placeholder="选填，例如：少冰、酱汁分装、花生过敏……" maxlength="120" show-word-limit/></el-form-item>
+        </section>
       </el-form>
-      <div v-if="orderPricing.base" class="order-campaign-pricing" :class="{ matched: orderPricing.offer }"><div><span>{{ orderPricing.offer ? '已自动匹配活动' : '订单金额' }}</span><strong>{{ orderPricing.offer?.campaign.name || '暂无可用优惠' }}</strong></div><div class="order-campaign-amount"><small v-if="orderPricing.offer">¥{{ orderPricing.base.toFixed(2) }}</small><strong>¥{{ orderPricing.payable.toFixed(2) }}</strong></div></div>
-      <div class="drawer-actions order-form-drawer-actions"><el-button :disabled="orderCreating" @click="orderDialogVisible = false">取消</el-button><el-button type="primary" :loading="orderCreating" :disabled="orderCreating" @click="createOrder">创建订单</el-button></div>
+      <div v-if="orderPricing.base" class="order-campaign-pricing" :class="{ matched: orderPricing.offer }">
+        <div class="order-pricing-copy"><span>{{ orderPricing.offer ? '已自动匹配活动' : '订单结算' }}</span><strong>{{ orderPricing.offer?.campaign.name || '当前暂无可用优惠' }}</strong></div>
+        <div class="order-pricing-detail"><span><small>商品金额</small><b>¥{{ orderPricing.base.toFixed(2) }}</b></span><span v-if="orderPricing.offer" class="discount"><small>活动优惠</small><b>-¥{{ orderPricing.offer.discount.toFixed(2) }}</b></span><span class="payable"><small>应付金额</small><strong>¥{{ orderPricing.payable.toFixed(2) }}</strong></span></div>
+      </div>
+      <div class="drawer-actions order-form-drawer-actions"><el-button :disabled="orderCreating" @click="orderDialogVisible = false">取消</el-button><el-button type="primary" :loading="orderCreating" :disabled="orderCreating" @click="createOrder">创建订单 · ¥{{ orderPricing.payable.toFixed(2) }}</el-button></div>
     </div>
   </el-drawer>
 
   <el-drawer v-model="settingsVisible" class="settings-drawer" size="430px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">显示偏好</span><h2>界面设置</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="settingsVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header"><div><h2>界面设置</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="settingsVisible = false"><AppIcon name="close"/></el-button></div>
     <div class="settings-list"><label class="setting-row"><span><strong>紧凑布局</strong><small>减少卡片间距，展示更多数据</small></span><el-switch v-model="compactMode"/></label><label class="setting-row"><span><strong>数据动画</strong><small>切换筛选项时启用过渡效果</small></span><el-switch v-model="motionEnabled"/></label><label class="setting-row"><span><strong>运营提醒</strong><small>库存与订单异常时显示红点</small></span><el-switch v-model="alertsEnabled"/></label></div>
   </el-drawer>
 
   <el-drawer v-model="ordersVisible" class="orders-drawer" size="520px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">订单概览</span><h2>今日全部订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="ordersVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header"><div><h2>今日全部订单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="ordersVisible = false"><AppIcon name="close"/></el-button></div>
     <div class="drawer-filter"><el-button v-for="filter in ['全部','待处理','制作中','待取餐','已完成']" :key="filter" :class="{ active: orderFilter === filter }" @click="orderFilter = filter">{{ filter }}</el-button></div>
     <div class="drawer-orders"><article v-for="order in filteredDrawerOrders" :key="order.id" class="drawer-order"><div><strong>{{ order.id }} · {{ order.customer }}</strong><small>{{ formatOrderItems(order.items) }}</small><small><span class="status" :class="dashboardStatusClass(order.status)">{{ order.status }}</span></small></div><span class="amount">{{ formatOrderMoney(order.amount) }}</span></article></div>
   </el-drawer>

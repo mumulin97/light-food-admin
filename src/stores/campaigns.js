@@ -1,9 +1,9 @@
 import { reactive } from 'vue'
 
 const seedCampaigns = [
-  { id: 1, name: '满减大促', icon: 'piggy', desc: '单笔订单满 ¥50 减 ¥10，适用于全部商品。', enabled: true, usageLabel: '使用次数', usage: '1,240 次', roi: '+18.5%', expiry: '14 天后过期', scheduled: false, type: '满减', threshold: 50, discount: 10, rate: 1, product: '全部商品', audience: '全部顾客', channel: '全渠道', budget: 3000 },
-  { id: 2, name: '超值套餐', icon: 'receipt', desc: '任意商品一次购买 2 件可享 9 折优惠。', enabled: true, usageLabel: '使用次数', usage: '856 次', roi: '+12.2%', expiry: '长期有效', scheduled: false, type: '件数折扣', threshold: 2, discount: 0, rate: 0.9, product: '全部商品', audience: '会员', channel: '全渠道', budget: 2000 },
-  { id: 3, name: '节日狂欢', icon: 'party', desc: '钻石会员下单可享 8 折专属优惠。', enabled: false, usageLabel: '历史使用', usage: '2,410 次', roi: '无数据', expiry: '计划上线', scheduled: true, type: '折扣', threshold: 0, discount: 0, rate: 0.8, product: '全部商品', audience: '钻石会员', channel: '全渠道', budget: 5000 },
+  { id: 1, name: '满减大促', icon: 'piggy', desc: '单笔订单满 ¥50 减 ¥10，适用于全部商品。', enabled: true, usageLabel: '使用次数', usage: '1,240 次', roi: '+18.5%', expiry: '14 天后过期', scheduled: false, archivedAt: null, type: '满减', threshold: 50, discount: 10, rate: 1, product: '全部商品', audience: '全部顾客', channel: '全渠道', budget: 3000 },
+  { id: 2, name: '超值套餐', icon: 'receipt', desc: '任意商品一次购买 2 件可享 9 折优惠。', enabled: true, usageLabel: '使用次数', usage: '856 次', roi: '+12.2%', expiry: '长期有效', scheduled: false, archivedAt: null, type: '件数折扣', threshold: 2, discount: 0, rate: 0.9, product: '全部商品', audience: '会员', channel: '全渠道', budget: 2000 },
+  { id: 3, name: '节日狂欢', icon: 'party', desc: '钻石会员下单可享 8 折专属优惠。', enabled: false, usageLabel: '历史使用', usage: '2,410 次', roi: '无数据', expiry: '计划上线', scheduled: true, archivedAt: null, type: '折扣', threshold: 0, discount: 0, rate: 0.8, product: '全部商品', audience: '钻石会员', channel: '全渠道', budget: 5000 },
 ]
 
 export const campaignStore = reactive({ campaigns: seedCampaigns, loaded: false })
@@ -34,7 +34,7 @@ export function bestCampaignForOrder({ items = [], amount = 0, member = null, me
   const quantity = items.reduce((sum, item) => sum + Number(item[1] || 0), 0)
   const productNames = items.map(item => item[0])
   const candidates = campaignStore.campaigns
-    .filter(campaign => campaign.enabled && !campaign.scheduled)
+    .filter(campaign => campaign.enabled && !campaign.scheduled && !campaign.archivedAt)
     .filter(campaign => campaign.channel === '全渠道' || campaign.channel === method)
     .filter(campaign => campaign.product === '全部商品' || productNames.includes(campaign.product))
     .filter(campaign => audienceMatched(campaign, member))

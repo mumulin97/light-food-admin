@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import employeePortraits from '../assets/employee-portraits.png'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
@@ -49,7 +49,7 @@ const seedEmployees = [
   ['伊莎贝拉·摩尔', 'isabella.m@lightbites.com', '员工', '西区熟食店', '离线', 'IM', '#dce9f1'],
   ['郑舒涵', 'shuhan.z@lightbites.com', '员工', '中心旗舰店', '在线', 'ZS', '#f2e7d8'],
   ['詹姆斯·马丁', 'james.m@lightbites.com', '配送员', '东区咖啡馆', '离线', 'JM', '#efe1e7'],
-].map(([name, email, role, store, status, initials, avatarColor], index) => ({ id: index + 1, name, email, role, store, status, initials, avatarColor, portraitIndex: index % 6 }))
+].map(([name, email, role, store, status, initials, avatarColor], index) => ({ id: index + 1, name, email, role, store, status, employmentStatus: '在职', initials, avatarColor, portraitIndex: index % 6 }))
 
 const seedLogs = [
   { id: 1, initials: 'SJ', user: '萨拉·詹宁斯', module: '订单', action: '创建', target: '订单号 #8841', ip: '192.168.1.45', time: '2023年10月24日 - 14:22:10', status: '成功' },
@@ -90,13 +90,13 @@ const draftStoreFilter = ref('全部门店')
 const timeRange = ref('最近 30 天')
 const logModuleFilter = ref('全部模块')
 const logStatusView = ref('全部')
-const form = reactive({ name: '', email: '', role: '员工', store: '中心旗舰店', status: '在线' })
+const form = reactive({ name: '', email: '', role: '员工', store: '中心旗舰店', status: '在线', employmentStatus: '在职' })
 
 const filteredEmployees = computed(() => {
   const keyword = props.query.trim().toLowerCase()
   return employees.value.filter(item => {
-    const queryMatched = !keyword || [item.name, item.email, item.role, item.store, item.status].some(value => value.toLowerCase().includes(keyword))
-    const rosterMatched = rosterView.value === '全部' || (rosterView.value === '在职' ? ['在线', '值班中'].includes(item.status) : ['离线', '请假'].includes(item.status))
+    const queryMatched = !keyword || [item.name, item.email, item.role, item.store, item.status, item.employmentStatus].some(value => String(value || '').toLowerCase().includes(keyword))
+    const rosterMatched = rosterView.value === '全部' || (item.employmentStatus || '在职') === rosterView.value
     return queryMatched && rosterMatched && (roleFilter.value === '全部职位' || item.role === roleFilter.value) && (statusFilter.value === '全部状态' || item.status === statusFilter.value) && (storeFilter.value === '全部门店' || item.store === storeFilter.value)
   })
 })
@@ -120,6 +120,7 @@ const successfulLogCount = computed(() => logs.value.filter(item => item.status 
 const logSuccessRate = computed(() => logs.value.length ? Math.round(successfulLogCount.value / logs.value.length * 100) : 100)
 const logOperatorCount = computed(() => new Set(logs.value.map(item => item.user)).size)
 const leaveEmployeeCount = computed(() => employees.value.filter(item => item.status === '请假').length)
+const activeEmployeeCount = computed(() => employees.value.filter(item => (item.employmentStatus || '在职') === '在职').length)
 
 const pageEmployees = computed(() => filteredEmployees.value.slice((employeePage.value - 1) * pageSize, employeePage.value * pageSize))
 const pageLogs = computed(() => filteredLogs.value.slice((logPage.value - 1) * pageSize, logPage.value * pageSize))
@@ -164,7 +165,7 @@ function changeTab(tab) {
 
 function openAdd() {
   editingId.value = null
-  Object.assign(form, { name: '', email: '', role: '员工', store: '中心旗舰店', status: '在线' })
+  Object.assign(form, { name: '', email: '', role: '员工', store: '中心旗舰店', status: '在线', employmentStatus: '在职' })
   dialogVisible.value = true
 }
 
@@ -221,6 +222,10 @@ async function handleEmployeeAction(command, employee) {
   if (command === 'edit') editEmployee(employee)
   if (command === 'schedule') ElMessage({ message: `已打开 ${employee.name} 的排班信息`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
   if (command === 'status') {
+    if ((employee.employmentStatus || '在职') === '离职') {
+      ElMessage({ message: '离职员工不能切换在线状态', type: 'warning', customClass: 'light-bites-message', duration: 2400 })
+      return
+    }
     const next = employee.status === '离线' ? '在线' : '离线'
     if (useBackend && supabase) {
       try {
@@ -234,6 +239,33 @@ async function handleEmployeeAction(command, employee) {
     }
     employee.status = next
     ElMessage({ message: `${employee.name} 已设为${next}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+  }
+  if (command === 'employment') {
+    const leaving = (employee.employmentStatus || '在职') === '在职'
+    if (leaving) {
+      try {
+        await ElMessageBox.confirm(
+          '离职后将保留员工资料和审计日志，同时停止排班与在线状态操作。',
+          `确认将「${employee.name}」设为离职？`,
+          { confirmButtonText: '确认离职', cancelButtonText: '取消', type: 'warning' },
+        )
+      } catch (error) {
+        if (error === 'cancel' || error === 'close') return
+        throw error
+      }
+    }
+    const draft = {
+      ...employee,
+      employmentStatus: leaving ? '离职' : '在职',
+      status: leaving ? '离线' : employee.status,
+    }
+    try {
+      if (useBackend && supabase) Object.assign(employee, await updateEmployee(supabase, employee.id, draft))
+      else Object.assign(employee, draft)
+      ElMessage({ message: `${employee.name} 已${leaving ? '办理离职' : '恢复在职'}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+    } catch (error) {
+      ElMessage({ message: error.message || '更新任职状态失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+    }
   }
 }
 
@@ -314,7 +346,7 @@ function traceLogSource(log) {
     </section>
 
     <section v-if="activeTab === 'employees'" class="system-metrics-grid" aria-label="团队概况">
-      <article><span class="system-metric-icon green"><AppIcon name="users"/></span><div><small>活跃员工</small><strong>24</strong></div><img class="employee-metric-art people" src="/dashboard-assets/member-network.png" alt="" /></article>
+      <article><span class="system-metric-icon green"><AppIcon name="users"/></span><div><small>在职员工</small><strong>{{ activeEmployeeCount }}</strong></div><img class="employee-metric-art people" src="/dashboard-assets/member-network.png" alt="" /></article>
       <article><span class="system-metric-icon blue"><AppIcon name="calendar"/></span><div><small>今日排班</small><strong>12</strong></div><img class="employee-metric-art schedule" src="/dashboard-assets/employee-schedule.png" alt="" /></article>
       <article><span class="system-metric-icon mint"><AppIcon name="check"/></span><div><small>系统健康度</small><strong>100%</strong></div><img class="employee-metric-art health" src="/dashboard-assets/employee-health.png" alt="" /></article>
       <article><span class="system-metric-icon amber"><AppIcon name="calendar"/></span><div><small>请假员工</small><strong>{{ leaveEmployeeCount }}</strong></div><img class="employee-metric-art logs" src="/dashboard-assets/employee-logs.png" alt="" /></article>
@@ -344,8 +376,9 @@ function traceLogSource(log) {
         <el-table-column label="员工姓名" min-width="220"><template #default="{ row }"><div class="employee-name-cell"><span class="employee-avatar has-photo" :style="portraitStyle(row.portraitIndex)" role="img" :aria-label="`${row.name}的头像`"/><span><strong>{{ row.name }}</strong><small>{{ row.email }}</small></span></div></template></el-table-column>
         <el-table-column prop="role" label="职位" min-width="105"/>
         <el-table-column prop="store" label="所属门店" min-width="150"/>
+        <el-table-column label="任职" min-width="88"><template #default="{ row }"><span class="employment-status" :class="(row.employmentStatus || '在职') === '在职' ? 'active' : 'left'">{{ row.employmentStatus || '在职' }}</span></template></el-table-column>
         <el-table-column label="状态" min-width="100"><template #default="{ row }"><span class="employee-status" :class="row.status === '在线' || row.status === '值班中' ? 'active' : row.status === '请假' ? 'leave' : 'offline'"><i/>{{ row.status }}</span></template></el-table-column>
-        <el-table-column label="操作" width="72" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><el-dropdown class="table-op-dropdown" trigger="click" popper-class="table-action-menu" @command="handleEmployeeAction($event,row)"><el-button class="table-more-button" circle aria-label="员工操作"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="edit">编辑资料</el-dropdown-item><el-dropdown-item command="schedule">查看排班</el-dropdown-item><el-dropdown-item command="status">切换在线状态</el-dropdown-item></el-dropdown-menu></template></el-dropdown></template></el-table-column>
+        <el-table-column label="操作" width="72" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><el-dropdown class="table-op-dropdown" trigger="click" popper-class="table-action-menu" @command="handleEmployeeAction($event,row)"><el-button class="table-more-button" circle aria-label="员工操作"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="edit">编辑资料</el-dropdown-item><el-dropdown-item command="schedule" :disabled="row.employmentStatus === '离职'">查看排班</el-dropdown-item><el-dropdown-item command="status" :disabled="row.employmentStatus === '离职'">切换在线状态</el-dropdown-item><el-dropdown-item command="employment" divided :class="{ 'danger-text': (row.employmentStatus || '在职') === '在职' }">{{ (row.employmentStatus || '在职') === '在职' ? '办理离职' : '恢复在职' }}</el-dropdown-item></el-dropdown-menu></template></el-dropdown></template></el-table-column>
       </el-table>
       <footer class="system-table-footer"><span>{{ employeeRange }}</span><div><el-pagination v-model:current-page="employeePage" background layout="prev, next" :page-size="pageSize" :total="filteredEmployees.length"/><el-button class="add-employee-button" @click="openAdd"><AppIcon name="plus"/>添加新员工</el-button></div></footer>
     </section>
@@ -369,7 +402,7 @@ function traceLogSource(log) {
   </div>
 
   <el-drawer v-model="dialogVisible" class="employee-drawer" size="540px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">团队档案</span><h2>{{ editingId ? '编辑员工' : '添加新员工' }}</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="dialogVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header"><div><h2>{{ editingId ? '编辑员工' : '添加新员工' }}</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="dialogVisible = false"><AppIcon name="close"/></el-button></div>
     <el-form label-position="top" @submit.prevent="saveEmployee">
       <div class="form-row"><el-form-item label="员工姓名"><el-input v-model="form.name" placeholder="输入员工姓名"/></el-form-item><el-form-item label="工作邮箱"><el-input v-model="form.email" placeholder="name@lightbites.com"/></el-form-item></div>
       <div class="form-row"><el-form-item label="职位"><el-select v-model="form.role"><el-option v-for="item in ['经理','厨师长','厨师','营养师','员工','配送员','采购员']" :key="item" :label="item" :value="item"/></el-select></el-form-item><el-form-item label="状态"><el-select v-model="form.status"><el-option v-for="item in ['在线','值班中','离线','请假']" :key="item" :label="item" :value="item"/></el-select></el-form-item></div>
@@ -425,6 +458,9 @@ function traceLogSource(log) {
 .employee-name-cell strong { font-size: 13px; }
 .employee-name-cell small { font-size: 11px; }
 .employee-status { padding: 5px 10px; font-size: 11px; }
+.employment-status { display: inline-flex; align-items: center; min-height: 25px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 760; }
+.employment-status.active { color: #24745d; background: rgba(210,239,229,.72); }
+.employment-status.left { color: #7b6e6b; background: rgba(235,230,229,.82); }
 .system-table-footer { min-height: 55px; padding-block: 8px; }
 .add-employee-button.el-button { height: 40px; border-radius: 11px !important; font-size: 12.5px; }
 @media (max-width: 1180px) {

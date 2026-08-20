@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import {
@@ -20,6 +20,8 @@ const props = defineProps({
 })
 
 const route = useRoute()
+const scopedStoreName = computed(() => typeof route.query.store === 'string' ? route.query.store : '')
+const scopedStoreId = computed(() => typeof route.query.storeId === 'string' ? route.query.storeId : '')
 
 const useBackend = isSupabaseConfigured()
 const loading = ref(false)
@@ -34,6 +36,33 @@ const UNIT_OPTIONS = ['kg', '桶', 'L', '个', '袋']
 const activeCategory = ref('全部')
 const activeSupplier = ref('所有供应商')
 const invPage = ref(1)
+
+function toInventoryDateKey(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatInventoryDate(date, withYear = true) {
+  return new Intl.DateTimeFormat('zh-CN', withYear
+    ? { year: 'numeric', month: 'long', day: 'numeric' }
+    : { month: 'long', day: 'numeric' }).format(date)
+}
+
+const selectedInventoryDate = ref(toInventoryDateKey(new Date()))
+const inventoryDateOptions = computed(() => Array.from({ length: 7 }, (_, index) => {
+  const date = new Date()
+  date.setHours(0, 0, 0, 0)
+  date.setDate(date.getDate() - index)
+  return {
+    value: toInventoryDateKey(date),
+    label: formatInventoryDate(date, false),
+    fullLabel: formatInventoryDate(date),
+    meta: index === 0 ? '今天' : index === 1 ? '昨天' : new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(date),
+  }
+}))
+const selectedInventoryDateLabel = computed(() => inventoryDateOptions.value.find(item => item.value === selectedInventoryDate.value)?.fullLabel || formatInventoryDate(new Date()))
 
 const addVisible = ref(false)
 const addForm = reactive({ emoji: '🥗', name: '', sku: '', category: '蔬菜', price: 0, unit: 'kg', stock: 0, threshold: 0, supplier: '待指定' })
@@ -81,10 +110,6 @@ const restockList = computed(() => inventoryStore.ingredients
     return { ...item, suggest, subtotal: suggest * item.price }
   }))
 const restockTotal = computed(() => restockList.value.reduce((sum, item) => sum + item.subtotal, 0))
-const todayLabel = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric', month: 'long', day: 'numeric',
-}).format(new Date())
-
 watch([activeCategory, activeSupplier, () => props.query], () => { invPage.value = 1 })
 
 async function loadInventory() {
@@ -99,6 +124,17 @@ async function loadInventory() {
     ElMessage({ message: loadError.value, type: 'error', customClass: 'light-bites-message', duration: 3200 })
   } finally {
     loading.value = false
+  }
+}
+
+async function selectInventoryDate(value) {
+  if (!value) return
+  const changed = selectedInventoryDate.value !== value
+  selectedInventoryDate.value = value
+  invPage.value = 1
+  if (changed && useBackend) await loadInventory()
+  if (changed) {
+    ElMessage({ message: `已切换至 ${selectedInventoryDateLabel.value} 库存快照`, type: 'success', customClass: 'light-bites-message', duration: 2200 })
   }
 }
 
@@ -185,6 +221,20 @@ async function handleAction(command, item) {
   if (command === 'stock') openStock(item)
   if (command === 'edit') ElMessage({ message: `正在编辑「${item.name}」`, customClass: 'light-bites-message', duration: 2200 })
   if (command === 'delete') {
+    if (Number(item.stock) > 0) {
+      ElMessage({ message: `请先将「${item.name}」库存清零后再删除`, type: 'warning', customClass: 'light-bites-message', duration: 2800 })
+      return
+    }
+    try {
+      await ElMessageBox.confirm(
+        `将永久删除原料「${item.name}」（${item.sku}），此操作无法恢复。`,
+        '确认删除原料？',
+        { confirmButtonText: '永久删除', cancelButtonText: '取消', type: 'warning' },
+      )
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
     if (useBackend && supabase) {
       try {
         await deleteIngredient(supabase, item.id)
@@ -311,7 +361,13 @@ function exportIngredients() {
     <p v-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
     <section class="module-page-heading">
       <div><h1>原料库存</h1><p>掌握原料余量、采购成本与补货节奏。</p></div>
-      <el-button class="product-date-button inventory-date-button" :aria-label="todayLabel"><AppIcon name="calendar"/><span>{{ todayLabel }}</span><AppIcon class="chevron" name="chevron"/></el-button>
+      <div class="inventory-heading-actions">
+        <div v-if="scopedStoreName" class="inventory-store-scope" :title="`门店 ID：${scopedStoreId}`"><AppIcon name="store"/><span><small>当前门店</small><strong>{{ scopedStoreName }}</strong></span></div>
+        <el-dropdown trigger="click" popper-class="date-dropdown product-date-dropdown inventory-date-dropdown" @command="selectInventoryDate">
+          <el-button class="product-date-button inventory-date-button" :aria-label="`选择库存日期，当前为${selectedInventoryDateLabel}`"><AppIcon name="calendar"/><span>{{ selectedInventoryDateLabel }}</span><AppIcon class="chevron" name="chevron"/></el-button>
+          <template #dropdown><el-dropdown-menu><el-dropdown-item v-for="item in inventoryDateOptions" :key="item.value" :command="item.value" :class="{ selected: selectedInventoryDate === item.value }"><span>{{ item.label }}</span><small>{{ item.meta }}</small></el-dropdown-item></el-dropdown-menu></template>
+        </el-dropdown>
+      </div>
     </section>
     <section class="inv-metrics" aria-label="库存概况">
       <article class="inv-card accent-green"><p>原料总数</p><div class="inv-figure-row"><strong>{{ ingredientTotalDisplay }}</strong><span class="inv-trend"><AppIcon name="arrow" />+5</span></div><span class="inv-produce-art" aria-hidden="true">🥦🥕</span></article>
@@ -358,27 +414,28 @@ function exportIngredients() {
   </div>
 
   <el-drawer v-model="addVisible" class="inv-drawer" size="540px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">原料档案</span><h2>新增原料</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="addVisible = false"><AppIcon name="close" /></el-button></div>
+    <div class="modal-header"><div><h2>新增原料</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="addVisible = false"><AppIcon name="close" /></el-button></div>
     <el-form label-position="top" @submit.prevent="saveIngredient">
       <div class="form-row"><el-form-item label="原料名称"><el-input v-model="addForm.name" placeholder="输入原料名称" /></el-form-item><el-form-item label="SKU 编号"><el-input v-model="addForm.sku" placeholder="如 VG-001" /></el-form-item></div>
-      <div class="form-row"><el-form-item label="分类"><el-select v-model="addForm.category"><el-option v-for="item in CATEGORY_OPTIONS" :key="item" :label="item" :value="item" /></el-select></el-form-item><el-form-item label="供应商"><el-select v-model="addForm.supplier"><el-option v-for="item in suppliers.filter(s => s !== '所有供应商')" :key="item" :label="item" :value="item" /></el-select></el-form-item></div>
-      <div class="form-row"><el-form-item label="采购单价 (¥)"><el-input-number v-model="addForm.price" :min="0" :step="1" :controls="false" /></el-form-item><el-form-item label="单位"><el-select v-model="addForm.unit"><el-option v-for="item in UNIT_OPTIONS" :key="item" :label="item" :value="item" /></el-select></el-form-item></div>
+      <div class="form-row"><el-form-item label="分类"><el-select v-model="addForm.category" popper-class="store-region-dropdown"><el-option v-for="item in CATEGORY_OPTIONS" :key="item" :label="item" :value="item" /></el-select></el-form-item><el-form-item label="供应商"><el-select v-model="addForm.supplier" popper-class="store-region-dropdown"><el-option v-for="item in suppliers.filter(s => s !== '所有供应商')" :key="item" :label="item" :value="item" /></el-select></el-form-item></div>
+      <div class="form-row"><el-form-item label="采购单价 (¥)"><el-input-number v-model="addForm.price" :min="0" :step="1" :controls="false" /></el-form-item><el-form-item label="单位"><el-select v-model="addForm.unit" popper-class="store-region-dropdown"><el-option v-for="item in UNIT_OPTIONS" :key="item" :label="item" :value="item" /></el-select></el-form-item></div>
       <div class="form-row"><el-form-item label="当前库存"><el-input-number v-model="addForm.stock" :min="0" :step="1" :controls="false" /></el-form-item><el-form-item label="预警阈值"><el-input-number v-model="addForm.threshold" :min="0" :step="1" :controls="false" /></el-form-item></div>
       <div class="drawer-actions"><el-button @click="addVisible = false">取消</el-button><el-button type="primary" @click="saveIngredient">新增原料</el-button></div>
     </el-form>
   </el-drawer>
 
-  <el-drawer v-model="stockVisible" class="inv-stock-drawer" size="480px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">{{ stockTarget?.name }} · 当前 {{ stockTarget ? formatStock(stockTarget) : '' }}</span><h2>调整库存</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="stockVisible = false"><AppIcon name="close" /></el-button></div>
+  <el-drawer v-model="stockVisible" class="inv-stock-drawer" size="540px" :with-header="false">
+    <div class="modal-header"><div><h2>调整库存</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="stockVisible = false"><AppIcon name="close" /></el-button></div>
+    <p class="inv-stock-context">{{ stockTarget?.name }} · 当前库存 {{ stockTarget ? formatStock(stockTarget) : '' }}</p>
     <el-form label-position="top" @submit.prevent="saveStock">
-      <el-form-item label="调整方式"><el-select v-model="stockForm.mode"><el-option label="入库" value="in" /><el-option label="出库" value="out" /><el-option label="盘点设为" value="set" /></el-select></el-form-item>
+      <el-form-item label="调整方式"><el-select v-model="stockForm.mode" popper-class="store-region-dropdown"><el-option label="入库" value="in" /><el-option label="出库" value="out" /><el-option label="盘点设为" value="set" /></el-select></el-form-item>
       <el-form-item :label="`数量（${stockTarget?.unit || ''}）`"><el-input-number v-model="stockForm.amount" :min="0" :step="1" :controls="false" /></el-form-item>
       <div class="drawer-actions"><el-button @click="stockVisible = false">取消</el-button><el-button type="primary" @click="saveStock">确认调整</el-button></div>
     </el-form>
   </el-drawer>
 
   <el-drawer v-model="purchaseVisible" class="inv-purchase-drawer" size="540px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">智能补货</span><h2>生成采购单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="purchaseVisible = false"><AppIcon name="close" /></el-button></div>
+    <div class="modal-header"><div><h2>生成采购单</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="purchaseVisible = false"><AppIcon name="close" /></el-button></div>
     <p class="inv-purchase-tip">以下 {{ restockList.length }} 项原料库存已低于或临近预警阈值，建议补货：</p>
     <div class="inv-purchase-list">
       <div v-for="item in restockList" :key="item.id" class="inv-purchase-item">

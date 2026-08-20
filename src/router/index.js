@@ -10,6 +10,7 @@ const OrderManagement = () => import('../components/OrderManagement.vue')
 const MemberManagement = () => import('../components/MemberManagement.vue')
 const MarketingManagement = () => import('../components/MarketingManagement.vue')
 const EmployeeManagement = () => import('../components/EmployeeManagement.vue')
+const AccountCenter = () => import('../components/AccountCenter.vue')
 
 export const navRoutes = [
   { path: '/', name: 'dashboard', label: '控制台', icon: 'grid', searchPlaceholder: '搜索分析数据、订单或产品...' },
@@ -52,6 +53,20 @@ const router = createRouter({
           component: EmployeeManagement,
           meta: { label: '系统日志' },
           props: { initialTab: 'logs' },
+        },
+        {
+          path: 'profile',
+          name: 'profile',
+          component: AccountCenter,
+          meta: { label: '个人资料', searchPlaceholder: '搜索个人资料设置...' },
+          props: { initialView: 'profile' },
+        },
+        {
+          path: 'account',
+          name: 'account',
+          component: AccountCenter,
+          meta: { label: '账号与权限', searchPlaceholder: '搜索账号、安全或权限设置...' },
+          props: { initialView: 'account' },
         },
         { path: '/:pathMatch(.*)*', redirect: '/' },
       ],

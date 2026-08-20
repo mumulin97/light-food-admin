@@ -1,10 +1,10 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import memberPortraits from '../assets/employee-portraits.png'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
-import { createMember, syncMemberStore, updateMemberBalance } from '../services/membersApi'
+import { createMember, setMemberStatus, syncMemberStore, updateMemberBalance } from '../services/membersApi'
 import { memberStore } from '../stores/members'
 
 const props = defineProps({
@@ -37,7 +37,7 @@ const totalLabel = computed(() => {
   const base = memberStore.members.length
   return (props.query.trim() ? filteredMembers.value.length : base).toLocaleString('en-US')
 })
-const memberCountDisplay = computed(() => memberStore.members.length || (useBackend ? 0 : 12845))
+const memberCountDisplay = computed(() => memberStore.members.filter(item => (item.status || '正常') === '正常').length || (useBackend ? 0 : 12845))
 const memberRange = computed(() => {
   const total = filteredMembers.value.length
   if (!total) return '没有符合条件的会员'
@@ -89,6 +89,7 @@ async function saveMember() {
     points: Number(addForm.points) || 0,
     balance: Number(addForm.balance) || 0,
     spent: 0,
+    status: '正常',
     portraitIndex: memberStore.members.length % 6,
   }
   if (useBackend && supabase) {
@@ -156,8 +157,35 @@ function viewOrders(member) {
   ElMessage({ message: `正在打开 ${member.name} 的历史订单`, customClass: 'light-bites-message', duration: 2200 })
 }
 
+async function changeMemberStatus(member, command) {
+  const next = command === 'freeze' ? '冻结' : command === 'cancel' ? '已注销' : '正常'
+  if (next === '已注销') {
+    if (Number(member.balance) > 0) {
+      ElMessage({ message: `会员仍有 ${formatMoney(member.balance)} 余额，请先完成退款或清零`, type: 'warning', customClass: 'light-bites-message', duration: 3000 })
+      return
+    }
+    try {
+      await ElMessageBox.confirm(
+        `注销后将停止积分、余额和营销权益，但会保留历史订单。`,
+        `确认注销会员「${member.name}」？`,
+        { confirmButtonText: '确认注销', cancelButtonText: '取消', type: 'warning' },
+      )
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
+  }
+  try {
+    if (useBackend && supabase) await setMemberStatus(supabase, member.id, next)
+    member.status = next
+    ElMessage({ message: `${member.name} 已设为${next}`, type: 'success', customClass: 'light-bites-message', duration: 2400 })
+  } catch (error) {
+    ElMessage({ message: error.message || '更新会员状态失败', type: 'error', customClass: 'light-bites-message', duration: 3200 })
+  }
+}
+
 function exportMembers() {
-  const rows = [['会员姓名', '手机号', '等级', '积分', '余额', '累计消费', '加入日期'], ...filteredMembers.value.map(item => [item.name, item.phone, item.tier, item.points, item.balance.toFixed(2), item.spent.toFixed(2), item.joined])]
+  const rows = [['会员姓名', '手机号', '等级', '状态', '积分', '余额', '累计消费', '加入日期'], ...filteredMembers.value.map(item => [item.name, item.phone, item.tier, item.status || '正常', item.points, item.balance.toFixed(2), item.spent.toFixed(2), item.joined])]
   const csv = `﻿${rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\n')}`
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
   const link = document.createElement('a')
@@ -213,9 +241,10 @@ function portraitStyle(index) {
           <el-table-column label="等级" min-width="104"><template #default="{ row }"><span class="tier-badge" :class="tierClass(row.tier)">{{ row.tier }}</span></template></el-table-column>
           <el-table-column label="积分" min-width="95"><template #default="{ row }"><span class="member-points">{{ row.points.toLocaleString('en-US') }} 积分</span></template></el-table-column>
           <el-table-column label="余额" min-width="95"><template #default="{ row }"><strong class="member-balance">{{ formatMoney(row.balance) }}</strong></template></el-table-column>
+          <el-table-column label="状态" min-width="86"><template #default="{ row }"><span class="member-lifecycle" :class="(row.status || '正常') === '正常' ? 'active' : (row.status === '冻结' ? 'frozen' : 'cancelled')">{{ row.status || '正常' }}</span></template></el-table-column>
           <el-table-column label="累计消费" min-width="110"><template #default="{ row }"><span class="member-spent">{{ formatMoney(row.spent) }}</span></template></el-table-column>
           <el-table-column label="加入日期" min-width="145"><template #default="{ row }"><span class="member-joined">{{ row.joined }}</span></template></el-table-column>
-          <el-table-column label="操作" width="155" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><div class="table-row-actions"><button type="button" class="table-action-link" @click="openBalance(row)">调整余额</button><button type="button" class="table-action-link" @click="viewOrders(row)">查看订单</button></div></template></el-table-column>
+          <el-table-column label="操作" width="190" align="left" class-name="table-op-column" label-class-name="table-op-column"><template #default="{ row }"><div class="table-row-actions"><button type="button" class="table-action-link" :disabled="row.status === '已注销'" @click="openBalance(row)">调整余额</button><button type="button" class="table-action-link" @click="viewOrders(row)">查看订单</button><el-dropdown trigger="click" popper-class="table-action-menu" @command="changeMemberStatus(row, $event)"><el-button class="table-more-button" circle aria-label="会员状态操作"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item v-if="(row.status || '正常') === '正常'" command="freeze">冻结会员</el-dropdown-item><el-dropdown-item v-if="row.status === '冻结'" command="restore">恢复正常</el-dropdown-item><el-dropdown-item v-if="row.status === '已注销'" command="restore">恢复会员</el-dropdown-item><el-dropdown-item v-if="row.status !== '已注销'" command="cancel" divided class="danger-text">注销会员</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></template></el-table-column>
         </el-table>
         <footer class="member-table-footer"><span>{{ memberRange }}</span><el-pagination v-model:current-page="memberPage" background layout="prev, pager, next" :page-size="pageSize" :total="filteredMembers.length" :pager-count="5" /></footer>
       </div>
@@ -223,7 +252,7 @@ function portraitStyle(index) {
   </div>
 
   <el-drawer v-model="addVisible" class="member-drawer" size="540px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">会员档案</span><h2>添加会员</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="addVisible = false"><AppIcon name="close" /></el-button></div>
+    <div class="modal-header"><div><h2>添加会员</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="addVisible = false"><AppIcon name="close" /></el-button></div>
     <el-form label-position="top" @submit.prevent="saveMember">
       <div class="form-row"><el-form-item label="会员姓名"><el-input v-model="addForm.name" placeholder="输入会员姓名" /></el-form-item><el-form-item label="手机号"><el-input v-model="addForm.phone" placeholder="如 138-0000-0000" /></el-form-item></div>
       <div class="form-row"><el-form-item label="会员等级"><el-select v-model="addForm.tier"><el-option v-for="item in ['钻石会员', '黄金会员', '白银会员']" :key="item" :label="item" :value="item" /></el-select></el-form-item><el-form-item label="初始积分"><el-input-number v-model="addForm.points" :min="0" :step="100" :controls="false" /></el-form-item></div>
@@ -233,7 +262,7 @@ function portraitStyle(index) {
   </el-drawer>
 
   <el-drawer v-model="balanceVisible" class="member-balance-drawer" size="480px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">{{ balanceTarget?.name }} · 当前 {{ balanceTarget ? formatMoney(balanceTarget.balance) : '' }}</span><h2>调整余额</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="balanceVisible = false"><AppIcon name="close" /></el-button></div>
+    <div class="modal-header"><div><h2>调整余额</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="balanceVisible = false"><AppIcon name="close" /></el-button></div>
     <el-form label-position="top" @submit.prevent="saveBalance">
       <el-form-item label="调整方式"><el-select v-model="balanceForm.mode"><el-option label="设置为" value="set" /><el-option label="充值增加" value="add" /><el-option label="扣减" value="subtract" /></el-select></el-form-item>
       <el-form-item :label="balanceForm.mode === 'set' ? '目标余额 (¥)' : '金额 (¥)'"><el-input-number v-model="balanceForm.amount" :min="0" :step="10" :controls="false" /></el-form-item>

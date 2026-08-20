@@ -40,12 +40,39 @@ const dialogVisible = ref(false)
 const editingId = ref(null)
 const form = reactive({ name: '', tag: '', category: '沙拉类', price: 12, stock: 20, unit: '份', calories: 300, protein: 12, carbs: 24, enabled: true, emoji: '🥗' })
 
+function toDateKey(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatCatalogDate(date, withYear = true) {
+  return new Intl.DateTimeFormat('zh-CN', withYear
+    ? { year: 'numeric', month: 'long', day: 'numeric' }
+    : { month: 'long', day: 'numeric' }).format(date)
+}
+
+const selectedCatalogDate = ref(toDateKey(new Date()))
+const catalogDateOptions = computed(() => Array.from({ length: 7 }, (_, index) => {
+  const date = new Date()
+  date.setHours(0, 0, 0, 0)
+  date.setDate(date.getDate() - index)
+  return {
+    value: toDateKey(date),
+    label: formatCatalogDate(date, false),
+    fullLabel: formatCatalogDate(date),
+    meta: index === 0 ? '今天' : index === 1 ? '昨天' : new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(date),
+  }
+}))
+const selectedCatalogDateLabel = computed(() => catalogDateOptions.value.find(item => item.value === selectedCatalogDate.value)?.fullLabel || formatCatalogDate(new Date()))
+
 const categories = computed(() => [
-  ['全部菜品', products.value.length, 'grid'],
-  ['沙拉类', products.value.filter(item => item.category === '沙拉类').length, 'leaf'],
-  ['轻食碗', products.value.filter(item => item.category === '轻食碗').length, 'box'],
-  ['营养昔', products.value.filter(item => item.category === '营养昔').length, 'money'],
-  ['生酮零食', products.value.filter(item => item.category === '生酮零食').length, 'badge'],
+  ['全部菜品', products.value.length, '🍽️'],
+  ['沙拉类', products.value.filter(item => item.category === '沙拉类').length, '🥗'],
+  ['轻食碗', products.value.filter(item => item.category === '轻食碗').length, '🥣'],
+  ['营养昔', products.value.filter(item => item.category === '营养昔').length, '🥤'],
+  ['生酮零食', products.value.filter(item => item.category === '生酮零食').length, '🥑'],
 ])
 
 const filteredProducts = computed(() => {
@@ -71,10 +98,6 @@ const rangeText = computed(() => {
 })
 
 const lowStockCount = computed(() => products.value.filter(item => item.stock <= 8 && item.stock > 0).length)
-const todayLabel = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric', month: 'long', day: 'numeric',
-}).format(new Date())
-
 watch([activeCategory, () => stockFilters.inStock, () => stockFilters.outOfStock, () => props.query], () => { currentPage.value = 1 })
 
 async function loadProducts() {
@@ -99,6 +122,14 @@ function openAdd() {
   editingId.value = null
   Object.assign(form, { name: '', tag: '', category: '沙拉类', price: 12, stock: 20, unit: '份', calories: 300, protein: 12, carbs: 24, enabled: true, emoji: '🥗' })
   dialogVisible.value = true
+}
+
+async function selectCatalogDate(value) {
+  if (selectedCatalogDate.value === value) return
+  selectedCatalogDate.value = value
+  currentPage.value = 1
+  if (useBackend) await loadProducts()
+  ElMessage({ message: `目录日期已切换至 ${selectedCatalogDateLabel.value}`, type: 'success', customClass: 'light-bites-message', duration: 2200 })
 }
 
 function openEdit(product) {
@@ -213,7 +244,10 @@ function showLowStock() {
     <section class="product-page-heading">
       <div><h1>菜品管理</h1><p>管理您的菜单项、营养成分和库存状态。</p></div>
       <div class="product-heading-actions">
-        <el-button class="product-date-button" :aria-label="todayLabel"><AppIcon name="calendar"/><span>{{ todayLabel }}</span><AppIcon class="chevron" name="chevron"/></el-button>
+        <el-dropdown trigger="click" popper-class="date-dropdown product-date-dropdown" @command="selectCatalogDate">
+          <el-button class="product-date-button" :aria-label="`选择目录日期，当前为${selectedCatalogDateLabel}`"><AppIcon name="calendar"/><span>{{ selectedCatalogDateLabel }}</span><AppIcon class="chevron" name="chevron"/></el-button>
+          <template #dropdown><el-dropdown-menu><el-dropdown-item v-for="item in catalogDateOptions" :key="item.value" :command="item.value" :class="{ selected: selectedCatalogDate === item.value }"><span>{{ item.label }}</span><small>{{ item.meta }}</small></el-dropdown-item></el-dropdown-menu></template>
+        </el-dropdown>
         <el-button class="add-product-button" @click="openAdd"><AppIcon name="plus"/>添加菜品</el-button>
       </div>
     </section>
@@ -222,7 +256,7 @@ function showLowStock() {
       <aside class="catalog-filter-card">
         <div class="catalog-filter-heading"><h2>类别筛选</h2><AppIcon name="filter"/></div>
         <div class="catalog-category-list">
-          <button v-for="([label,count,icon]) in categories" :key="label" :class="{ active: activeCategory === label }" @click="activeCategory = label"><span><AppIcon :name="icon"/>{{ label }}</span><b>{{ count }}</b></button>
+          <button v-for="([label,count,icon]) in categories" :key="label" :class="{ active: activeCategory === label }" @click="activeCategory = label"><span><i class="catalog-category-icon" aria-hidden="true">{{ icon }}</i>{{ label }}</span><b>{{ count }}</b></button>
         </div>
         <div class="catalog-stock-filter"><h3>库存状态</h3><label><input v-model="stockFilters.inStock" type="checkbox"/><span>有货中</span><b>{{ products.filter(item => item.stock > 0).length }}</b></label><label><input v-model="stockFilters.outOfStock" type="checkbox"/><span>已售罄</span><b>{{ products.filter(item => item.stock === 0).length }}</b></label></div>
         <article class="catalog-alert-card"><img class="catalog-alert-siren" src="/dashboard-assets/inventory-alert-siren.png" alt="" aria-hidden="true"/><span class="catalog-alert-icon"><AppIcon name="warning"/></span><h3>库存预警</h3><p>有 {{ lowStockCount }} 个项目库存严重不足，请立即检查并补货。</p><el-button @click="showLowStock">查看缺货详情</el-button></article>
@@ -243,7 +277,7 @@ function showLowStock() {
   </div>
 
   <el-drawer v-model="dialogVisible" class="product-drawer" size="560px" :with-header="false" append-to-body>
-    <div class="modal-header"><div><span class="eyebrow">菜单档案</span><h2>{{ editingId ? '编辑菜品' : '添加菜品' }}</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="dialogVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header"><div><h2>{{ editingId ? '编辑菜品' : '添加菜品' }}</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="dialogVisible = false"><AppIcon name="close"/></el-button></div>
     <el-form label-position="top" @submit.prevent="saveProduct">
       <div class="product-form-name"><el-form-item label="菜品图标"><el-select v-model="form.emoji" :teleported="true" popper-class="order-form-popper" :max-height="240"><el-option v-for="emoji in ['🥗','🥣','🥤','🍫','🥑','🍣','🍱','🫐']" :key="emoji" :label="emoji" :value="emoji"/></el-select></el-form-item><el-form-item label="菜品名称"><el-input v-model="form.name" placeholder="输入菜品名称"/></el-form-item></div>
       <div class="form-row"><el-form-item label="菜品类别"><el-select v-model="form.category" :teleported="true" popper-class="order-form-popper" :max-height="240"><el-option v-for="category in ['沙拉类','轻食碗','营养昔','生酮零食']" :key="category" :label="category" :value="category"/></el-select></el-form-item><el-form-item label="营销标签"><el-input v-model="form.tag" placeholder="例如：新品、热销"/></el-form-item></div>

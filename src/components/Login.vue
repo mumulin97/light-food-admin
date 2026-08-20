@@ -8,6 +8,7 @@ const emit = defineEmits(['login'])
 
 const useBackend = isSupabaseConfigured()
 const DEMO = { username: 'admin', password: '123456' }
+const DEMO_PASSWORD_KEY = 'lightbites-demo-password'
 
 const form = reactive({ username: '', password: '' })
 const remember = ref(false)
@@ -43,7 +44,8 @@ async function submit() {
     }
 
     await new Promise(resolve => window.setTimeout(resolve, 480))
-    if (form.username.trim() === DEMO.username && form.password === DEMO.password) {
+    const demoPassword = localStorage.getItem(DEMO_PASSWORD_KEY) || DEMO.password
+    if (form.username.trim() === DEMO.username && form.password === demoPassword) {
       ElMessage({ message: '登录成功，欢迎回来，猴猴大王！', type: 'success', customClass: 'light-bites-message', duration: 2400 })
       emit('login', { name: '猴猴大王', role: '超级管理员', username: form.username.trim() })
     } else {
@@ -77,11 +79,9 @@ function forgot() {
     <div class="login-body">
       <div class="login-card">
         <div class="login-brand">
-          <span class="login-kicker">猴猴轻食园</span>
-          <h1 class="card-title">后台管理系统</h1>
           <span class="login-brand-line" aria-hidden="true">
             <i />
-            <img src="/logo.png" alt="" />
+            <img src="/brand-assets/monkey-kitchen-logo-v2.png" alt="" />
             <i />
           </span>
         </div>

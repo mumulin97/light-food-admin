@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
@@ -10,6 +11,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['stores-changed'])
+const router = useRouter()
 
 const useBackend = isSupabaseConfigured()
 
@@ -142,6 +144,19 @@ function openInventory(store) {
   selectedStore.value = store
   inventoryVisible.value = true
 }
+
+async function enterInventoryManagement() {
+  if (!selectedStore.value) return
+  const store = selectedStore.value
+  inventoryVisible.value = false
+  await router.push({
+    name: 'inventory',
+    query: {
+      store: store.name,
+      storeId: String(store.id),
+    },
+  })
+}
 </script>
 
 <template>
@@ -188,21 +203,21 @@ function openInventory(store) {
   </div>
 
   <el-drawer v-model="dialogVisible" class="store-drawer" size="540px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">门店档案</span><h2>{{ editingId ? '编辑门店' : '添加新门店' }}</h2></div><el-button class="icon-button" circle @click="dialogVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header"><div><h2>{{ editingId ? '编辑门店' : '添加新门店' }}</h2></div><el-button class="icon-button" circle @click="dialogVisible = false"><AppIcon name="close"/></el-button></div>
     <el-form label-position="top" @submit.prevent="saveStore">
       <el-form-item label="门店名称"><el-input v-model="form.name" placeholder="例如：绿意轻食中心店"/></el-form-item>
       <el-form-item label="门店地址"><el-input v-model="form.address" placeholder="输入完整地址"/></el-form-item>
       <div class="form-row"><el-form-item label="负责人"><el-input v-model="form.manager" placeholder="负责人姓名"/></el-form-item><el-form-item label="联系电话"><el-input v-model="form.phone" placeholder="联系电话"/></el-form-item></div>
-      <div class="form-row"><el-form-item label="所在区域"><el-select v-model="form.region"><el-option v-for="region in ['西海岸','中心区','港口区']" :key="region" :label="region" :value="region"/></el-select></el-form-item><el-form-item label="营业状态"><el-select v-model="form.status"><el-option label="营业中" value="营业中"/><el-option label="已关闭" value="已关闭"/></el-select></el-form-item></div>
+      <div class="form-row"><el-form-item label="所在区域"><el-select v-model="form.region" popper-class="store-region-dropdown"><el-option v-for="region in ['西海岸','中心区','港口区']" :key="region" :label="region" :value="region"/></el-select></el-form-item><el-form-item label="营业状态"><el-select v-model="form.status" popper-class="store-region-dropdown"><el-option label="营业中" value="营业中"/><el-option label="已关闭" value="已关闭"/></el-select></el-form-item></div>
       <div class="drawer-actions"><el-button @click="dialogVisible = false">取消</el-button><el-button type="primary" native-type="submit" :loading="saving">{{ editingId ? '保存更改' : '创建门店' }}</el-button></div>
     </el-form>
   </el-drawer>
 
   <el-drawer v-model="inventoryVisible" class="inventory-drawer" size="430px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">门店库存</span><h2>{{ selectedStore?.name }}</h2></div><el-button class="icon-button" circle @click="inventoryVisible = false"><AppIcon name="close"/></el-button></div>
+    <div class="modal-header"><div><h2>{{ selectedStore?.name }}</h2></div><el-button class="icon-button" circle @click="inventoryVisible = false"><AppIcon name="close"/></el-button></div>
     <div class="inventory-store-meta"><span><AppIcon name="store"/></span><div><strong>{{ selectedStore?.address }}</strong><small>{{ selectedStore?.manager }} · {{ selectedStore?.phone }}</small></div></div>
     <div class="inventory-stats"><article><span>原料库存</span><strong>126 项</strong></article><article class="warning"><span>库存预警</span><strong>3 项</strong></article><article><span>最后盘点</span><strong>今天 09:40</strong></article></div>
-    <el-button class="inventory-primary" type="primary" @click="ElMessage({ message: '已进入该门店库存管理', type: 'success', customClass: 'light-bites-message', duration: 2400 })">进入库存管理<AppIcon name="arrow"/></el-button>
+    <el-button class="inventory-primary" type="primary" @click="enterInventoryManagement">进入库存管理<AppIcon name="arrow"/></el-button>
   </el-drawer>
 </template>
 

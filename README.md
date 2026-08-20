@@ -20,7 +20,7 @@ pnpm dev
 ## Supabase（控制台已接数据库）
 
 1. 在 [Supabase](https://supabase.com) 创建项目。
-2. **SQL Editor** 中执行 [`supabase/schema.sql`](supabase/schema.sql)（新建项目）。若之前已执行过旧版 schema，再依次执行 [`002_store_fields.sql`](supabase/migrations/002_store_fields.sql)、[`003_order_flags.sql`](supabase/migrations/003_order_flags.sql)、[`004_products_catalog.sql`](supabase/migrations/004_products_catalog.sql)、[`005_remaining_modules.sql`](supabase/migrations/005_remaining_modules.sql)、[`006_notifications.sql`](supabase/migrations/006_notifications.sql)。
+2. **SQL Editor** 中执行 [`supabase/full_schema.sql`](supabase/full_schema.sql)（新建项目）。已有项目请继续执行最新的 [`007_lifecycle_and_delete_permissions.sql`](supabase/migrations/007_lifecycle_and_delete_permissions.sql)，补齐会员、员工与活动生命周期字段并收紧删除权限。
 3. **Authentication → Users** 创建管理员用户（邮箱 + 密码）。
 4. **Project Settings → API** 复制 URL 与 `anon` key。
 5. 复制 `.env.example` 为 `.env.local` 并填写：

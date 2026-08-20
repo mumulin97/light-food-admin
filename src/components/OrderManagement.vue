@@ -266,7 +266,7 @@ function exportOrders() {
           :teleported="true"
         />
       </label>
-      <label class="order-filter-field order-filter-field--status"><span>状态</span><el-select v-model="draftStatus"><el-option v-for="item in FILTER_STATUSES" :key="item" :label="item" :value="item" /></el-select></label>
+      <label class="order-filter-field order-filter-field--status"><span>状态</span><el-select v-model="draftStatus" popper-class="store-region-dropdown"><el-option v-for="item in FILTER_STATUSES" :key="item" :label="item" :value="item" /></el-select></label>
       <el-button class="order-apply-button" @click="applyFilters">应用筛选</el-button>
     </section>
 
@@ -285,10 +285,10 @@ function exportOrders() {
     </div>
   </div>
 
-  <el-drawer v-model="detailVisible" class="order-detail-drawer" size="480px" :with-header="false">
-    <div class="modal-header"><div><span class="eyebrow">订单详情</span><h2>{{ detailOrder?.id }}</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="detailVisible = false"><AppIcon name="close" /></el-button></div>
+  <el-drawer v-model="detailVisible" class="order-detail-drawer" size="540px" :with-header="false">
+    <div class="modal-header"><div><h2>订单详情</h2></div><el-button class="icon-button" circle aria-label="关闭" @click="detailVisible = false"><AppIcon name="close" /></el-button></div>
     <div v-if="detailOrder" class="order-detail">
-      <div class="order-detail-top"><span class="order-status" :class="STATUS_META[detailOrder.status].class"><i v-if="STATUS_META[detailOrder.status].dot" />{{ detailOrder.status }}</span><span class="order-detail-time">{{ detailOrder.time }}</span></div>
+      <div class="order-detail-top"><div><small>订单编号</small><strong>{{ detailOrder.id }}</strong><span class="order-detail-time">{{ detailOrder.time }}</span></div><span class="order-status" :class="STATUS_META[detailOrder.status].class"><i v-if="STATUS_META[detailOrder.status].dot" />{{ detailOrder.status }}</span></div>
       <dl class="order-detail-meta">
         <div><dt>客户</dt><dd>{{ detailOrder.customer }}</dd></div>
         <div><dt>就餐方式</dt><dd>{{ detailOrder.method }}</dd></div>

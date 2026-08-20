@@ -31,6 +31,7 @@ export function mapCampaignRow(row) {
     roi: row.roi,
     expiry: row.expiry_text,
     scheduled: row.scheduled,
+    archivedAt: row.archived_at || null,
     ...meta,
   }
 }
@@ -46,6 +47,7 @@ function payload(row) {
     roi: row.roi || '无数据',
     expiry_text: row.expiry || '长期有效',
     scheduled: Boolean(row.scheduled),
+    archived_at: row.archivedAt || null,
   }
 }
 
@@ -73,6 +75,18 @@ export async function recordCampaignUsage(client, campaign) {
 
 export async function updateCampaign(client, id, row) {
   const { data, error } = await client.from('marketing_campaigns').update(payload(row)).eq('id', id).select('*').single()
+  if (error) throw error
+  return mapCampaignRow(data)
+}
+
+export async function setCampaignArchived(client, id, archived) {
+  const archivedAt = archived ? new Date().toISOString() : null
+  const { data, error } = await client
+    .from('marketing_campaigns')
+    .update({ archived_at: archivedAt, enabled: false, scheduled: false })
+    .eq('id', id)
+    .select('*')
+    .single()
   if (error) throw error
   return mapCampaignRow(data)
 }

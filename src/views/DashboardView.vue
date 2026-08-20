@@ -55,6 +55,21 @@ const rankingSets = {
 const selectedDateLocal = ref('2023年10月24日')
 const currentRangeLocal = ref(7)
 const rankingModeLocal = ref('volume')
+const kitchenDrawerVisible = ref(false)
+const kitchenDrawerView = ref('schedule')
+
+const kitchenSchedule = [
+  { time: '07:30–11:30', name: '早餐备餐', team: '马库斯 · 林晓雯等 4 人', status: '进行中', tone: 'active' },
+  { time: '10:30–14:30', name: '午市高峰', team: '萨拉 · 陈大卫等 6 人', status: '已就绪', tone: 'ready' },
+  { time: '14:00–18:00', name: '下午轮值', team: '周子航 · 王雅琪等 3 人', status: '待交接', tone: 'pending' },
+  { time: '17:30–21:30', name: '晚市收尾', team: '艾米丽 · 诺亚等 4 人', status: '未开始', tone: 'muted' },
+]
+
+const efficiencyIndicators = [
+  { label: '出餐及时率', value: 96, note: '目标 92%', tone: 'mint' },
+  { label: '备餐完成度', value: 92, note: '11 / 12 项', tone: 'blue' },
+  { label: '人效利用率', value: 94, note: '较昨日 +6%', tone: 'amber' },
+]
 
 const selectedDateLabel = computed(() =>
   useBackend ? dashboard.selectedDateLabel.value : selectedDateLocal.value,
@@ -85,6 +100,13 @@ const rankingMode = computed({
 const currentMetrics = computed(() =>
   useBackend ? dashboard.metrics.value : dateData[selectedDateLocal.value],
 )
+
+const revenueDisplay = computed(() => {
+  const raw = String(currentMetrics.value?.revenue ?? '¥0').trim()
+  const currency = raw.match(/^[¥￥$€£]/)?.[0] || '¥'
+  const amount = raw.replace(/^[¥￥$€£]\s*/, '') || '0'
+  return { currency, amount }
+})
 
 function parseMetricNumber(field, raw) {
   if (field === 'revenue') return Number(String(raw).replace(/[¥,]/g, '')) || 0
@@ -169,6 +191,7 @@ const closureItems = computed(() => [
   { key: 'suppliers', label: '供应协同', value: linkedSupplierCount.value, unit: '家需联动', icon: 'truck', route: '/suppliers', tone: 'mint' },
   { key: 'marketing', label: '活动承接', value: activeCampaignCount.value, unit: '个投放中', icon: 'megaphone', route: '/marketing', tone: 'violet' },
 ])
+const closureIssueCount = computed(() => pendingOrderCount.value + parseMetricNumber('alerts', currentMetrics.value?.alerts))
 const dashboardLoading = dashboard.loading
 const dashboardError = dashboard.error
 
@@ -204,6 +227,11 @@ function selectDate(date) {
   })
 }
 
+function openKitchenDrawer(view) {
+  kitchenDrawerView.value = view
+  kitchenDrawerVisible.value = true
+}
+
 defineExpose({
   refresh: () => dashboard.refresh(),
   reloadStores: force => dashboard.loadStoreList(force),
@@ -233,8 +261,8 @@ defineExpose({
         <p>您的团队今日表现优异，运营效率达到 <strong>94%</strong>。请保持！</p>
         <div class="efficiency-meter"><span style="--value:94%"/></div>
         <div class="efficiency-actions">
-          <el-button class="efficiency-btn">查看排班</el-button>
-          <el-button class="efficiency-btn efficiency-btn--primary">效率详情 <AppIcon name="arrow"/></el-button>
+          <el-button class="efficiency-btn" @click="openKitchenDrawer('schedule')">查看排班</el-button>
+          <el-button class="efficiency-btn efficiency-btn--primary" @click="openKitchenDrawer('efficiency')">效率详情 <AppIcon name="arrow"/></el-button>
         </div>
       </article>
       <article class="metric-card metric-card--orders">
@@ -242,7 +270,7 @@ defineExpose({
         <img class="metric-visual" src="/dashboard-assets/console1-transparent.png" alt="" />
       </article>
       <article class="metric-card metric-card--revenue">
-        <div class="metric-card-head"><span class="metric-icon neutral"><AppIcon name="money"/></span><div class="metric-body"><p>今日总营收</p><strong class="metric-value">{{ currentMetrics.revenue }}</strong></div><span class="trend" :class="currentMetricTrends.revenue.tone">{{ currentMetricTrends.revenue.label }}</span></div>
+        <div class="metric-card-head"><span class="metric-icon neutral"><AppIcon name="money"/></span><div class="metric-body"><p>今日总营收</p><strong class="metric-value revenue-value"><span class="revenue-currency">{{ revenueDisplay.currency }}</span><span class="revenue-amount">{{ revenueDisplay.amount }}</span></strong></div><span class="trend" :class="currentMetricTrends.revenue.tone">{{ currentMetricTrends.revenue.label }}</span></div>
         <img class="metric-visual" src="/dashboard-assets/console2-transparent-final.png" alt="" />
       </article>
       <article class="metric-card metric-card--products">
@@ -260,10 +288,37 @@ defineExpose({
         <div class="panel-heading"><h2>七日营收趋势</h2><div class="chart-actions"><el-dropdown trigger="click" popper-class="range-dropdown" @command="currentRange = Number($event)"><el-button class="range-button"><span class="range-button-label">最近 {{ currentRange }} 天</span><AppIcon name="chevron"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="range in [7,14,30]" :key="range" :command="range" :class="{ selected: currentRange === range }">最近 {{ range }} 天</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div></div>
         <div class="chart-wrap"><RevenueChart :values="chartValues" :labels="chartLabels" :animated="motionEnabled" /></div>
       </article>
+      <article class="panel ranking-panel">
+        <div class="panel-heading"><h2>畅销排行榜 Top 5</h2><el-dropdown trigger="click" popper-class="ranking-dropdown" @command="rankingMode = $event"><el-button class="more-button" aria-label="排行设置"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="volume" :class="{ selected: rankingMode === 'volume' }">按销量排序</el-dropdown-item><el-dropdown-item command="revenue" :class="{ selected: rankingMode === 'revenue' }">按营收排序</el-dropdown-item><el-dropdown-item command="growth" :class="{ selected: rankingMode === 'growth' }">按增长排序</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div>
+        <div v-if="hasRankingData" class="ranking-list"><div v-for="([name,value,width,color]) in currentRanking" :key="name" class="ranking-item" :style="{ '--rank-color': color }"><div class="ranking-copy"><strong>{{ name }}</strong><span>{{ value }}</span></div><div class="rank-track"><div class="rank-bar" :style="{ '--bar-width': `${width}%` }"/></div></div></div>
+        <div v-else class="ranking-empty" role="status">
+          <AppIcon name="box"/>
+          <p>暂无畅销数据</p>
+          <small>当前日期或门店还没有可统计的订单，请切换日期、门店或稍后再看。</small>
+        </div>
+      </article>
+    </section>
+
+    <section class="lower-grid">
+      <article class="panel orders-panel">
+        <div class="panel-heading"><h2>最新订单日志</h2><el-button class="view-all" text @click="emit('open-all-orders')">查看全部<AppIcon name="arrow"/></el-button></div>
+        <el-table :data="latestOrders" class="orders-table" table-layout="fixed" empty-text="暂无订单数据">
+          <el-table-column prop="id" label="订单编号" min-width="92"><template #default="{ row }"><span class="order-log-id">{{ row.id }}</span></template></el-table-column>
+          <el-table-column prop="customer" label="顾客姓名" min-width="82"><template #default="{ row }"><span class="order-log-customer">{{ row.customer }}</span></template></el-table-column>
+          <el-table-column label="订单状态" min-width="88"><template #default="{ row }"><span class="status" :class="dashboardStatusClass(row.status)">{{ row.status }}</span></template></el-table-column>
+          <el-table-column label="交易金额" min-width="88" align="right"><template #default="{ row }"><strong class="order-log-amount">{{ formatOrderMoney(row.amount) }}</strong></template></el-table-column>
+        </el-table>
+        <img class="order-receipts-art" src="/dashboard-assets/order-receipts-transparent.png" alt="" aria-hidden="true" />
+      </article>
       <article class="panel closure-panel">
         <div class="panel-heading closure-heading">
-          <div><h2>经营协同闭环</h2><p>订单驱动库存、供应与营销同步响应</p></div>
+          <div><h2>经营协同</h2><p>订单触发补货，供应与活动同步承接</p></div>
           <span class="closure-live"><i aria-hidden="true"/>实时联动</span>
+        </div>
+        <div class="closure-overview">
+          <span class="closure-overview-icon"><AppIcon name="sparkles"/></span>
+          <div><small>今日协同链路</small><strong>4 个环节已接通</strong><p>订单 → 库存 → 供应 → 活动</p></div>
+          <span class="closure-overview-count"><b>{{ closureIssueCount }}</b><small>项待推进</small></span>
         </div>
         <div class="closure-flow" aria-label="经营协同流程">
           <button
@@ -280,32 +335,50 @@ defineExpose({
           </button>
         </div>
         <footer class="closure-footer">
-          <span>订单 → 库存 → 供应 → 营销</span>
-          <button type="button" @click="router.push('/logs')">查看闭环日志 <AppIcon name="arrow"/></button>
+          <span>数据随业务状态实时更新</span>
+          <button type="button" @click="router.push('/logs')">查看协同记录<AppIcon name="arrow"/></button>
         </footer>
       </article>
     </section>
+  </div>
 
-    <section class="lower-grid">
-      <article class="panel orders-panel">
-        <div class="panel-heading"><h2>最新订单日志</h2><el-button class="view-all" text @click="emit('open-all-orders')">查看全部<AppIcon name="arrow"/></el-button></div>
-        <el-table :data="latestOrders" class="orders-table" table-layout="fixed" empty-text="暂无订单数据">
-          <el-table-column prop="id" label="订单编号" min-width="92"><template #default="{ row }"><span class="order-log-id">{{ row.id }}</span></template></el-table-column>
-          <el-table-column prop="customer" label="顾客姓名" min-width="82"><template #default="{ row }"><span class="order-log-customer">{{ row.customer }}</span></template></el-table-column>
-          <el-table-column label="订单状态" min-width="88"><template #default="{ row }"><span class="status" :class="dashboardStatusClass(row.status)">{{ row.status }}</span></template></el-table-column>
-          <el-table-column label="交易金额" min-width="88" align="right"><template #default="{ row }"><strong class="order-log-amount">{{ formatOrderMoney(row.amount) }}</strong></template></el-table-column>
-        </el-table>
-        <img class="order-receipts-art" src="/dashboard-assets/order-receipts-transparent.png" alt="" aria-hidden="true" />
-      </article>
-      <article class="panel ranking-panel">
-        <div class="panel-heading"><h2>畅销排行榜 Top 5</h2><el-dropdown trigger="click" popper-class="ranking-dropdown" @command="rankingMode = $event"><el-button class="more-button" aria-label="排行设置"><AppIcon name="more"/></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="volume" :class="{ selected: rankingMode === 'volume' }">按销量排序</el-dropdown-item><el-dropdown-item command="revenue" :class="{ selected: rankingMode === 'revenue' }">按营收排序</el-dropdown-item><el-dropdown-item command="growth" :class="{ selected: rankingMode === 'growth' }">按增长排序</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div>
-        <div v-if="hasRankingData" class="ranking-list"><div v-for="([name,value,width,color]) in currentRanking" :key="name" class="ranking-item" :style="{ '--rank-color': color }"><div class="ranking-copy"><strong>{{ name }}</strong><span>{{ value }}</span></div><div class="rank-track"><div class="rank-bar" :style="{ '--bar-width': `${width}%` }"/></div></div></div>
-        <div v-else class="ranking-empty" role="status">
-          <AppIcon name="box"/>
-          <p>暂无畅销数据</p>
-          <small>当前日期或门店还没有可统计的订单，请切换日期、门店或稍后再看。</small>
-        </div>
+  <el-drawer v-model="kitchenDrawerVisible" class="kitchen-operations-drawer" size="520px" :with-header="false">
+    <div class="modal-header kitchen-drawer-header">
+      <div><h2>{{ kitchenDrawerView === 'schedule' ? '今日排班' : '运营效率详情' }}</h2><p>{{ kitchenDrawerView === 'schedule' ? '按营业时段查看人员配置与交接状态。' : '拆解 94% 效能得分，定位可继续提升的环节。' }}</p></div>
+      <el-button class="icon-button" circle aria-label="关闭" @click="kitchenDrawerVisible = false"><AppIcon name="close"/></el-button>
+    </div>
+
+    <div class="kitchen-drawer-switch" role="tablist" aria-label="厨房运营视图">
+      <button type="button" role="tab" :aria-selected="kitchenDrawerView === 'schedule'" :class="{ active: kitchenDrawerView === 'schedule' }" @click="kitchenDrawerView = 'schedule'">今日排班</button>
+      <button type="button" role="tab" :aria-selected="kitchenDrawerView === 'efficiency'" :class="{ active: kitchenDrawerView === 'efficiency' }" @click="kitchenDrawerView = 'efficiency'">效率分析</button>
+    </div>
+
+    <section v-if="kitchenDrawerView === 'schedule'" class="kitchen-schedule-list">
+      <article v-for="shift in kitchenSchedule" :key="shift.time">
+        <time>{{ shift.time }}</time>
+        <div><strong>{{ shift.name }}</strong><small>{{ shift.team }}</small></div>
+        <span :class="shift.tone">{{ shift.status }}</span>
       </article>
     </section>
-  </div>
+
+    <section v-else class="kitchen-efficiency-detail">
+      <div class="kitchen-score-card">
+        <span><strong>94</strong><small>/ 100</small></span>
+        <div><b>厨房运行顺畅</b><p>出餐与人员配置均处于健康区间，午市备餐仍有 1 项可提前完成。</p></div>
+      </div>
+      <div class="kitchen-indicator-list">
+        <article v-for="indicator in efficiencyIndicators" :key="indicator.label">
+          <div><strong>{{ indicator.label }}</strong><span>{{ indicator.value }}%</span></div>
+          <div class="kitchen-indicator-track"><i :class="indicator.tone" :style="{ '--indicator-value': `${indicator.value}%` }"/></div>
+          <small>{{ indicator.note }}</small>
+        </article>
+      </div>
+      <div class="kitchen-insight"><AppIcon name="sparkles"/><div><strong>今日建议</strong><p>在 10:30 前完成午市最后一项备餐，可减少高峰期约 6 分钟等待。</p></div></div>
+    </section>
+
+    <div class="drawer-actions kitchen-drawer-actions">
+      <el-button @click="kitchenDrawerVisible = false">关闭</el-button>
+      <el-button type="primary" @click="router.push(kitchenDrawerView === 'schedule' ? '/employees' : '/orders'); kitchenDrawerVisible = false">{{ kitchenDrawerView === 'schedule' ? '进入员工管理' : '查看今日订单' }}</el-button>
+    </div>
+  </el-drawer>
 </template>

@@ -1,39 +1,43 @@
 <view class="container">
-  <view class="profile-header">
-    <view class="avatar-wrapper">
-      <text class="avatar-icon">👤</text>
+  <view class="profile-hero">
+    <view class="hero-orb"></view>
+    <view class="profile-identity">
+      <view class="avatar-wrapper"><text class="avatar-icon">🐵</text></view>
+      <view class="user-info">
+        <view class="name-row"><text class="user-name">{{profile.name || '轻食客'}}</text><text class="edit-name" bindtap="editName">编辑</text></view>
+        <text class="user-id">会员编号 {{profile.memberId}}</text>
+        <text class="member-level">轻盈生活会员</text>
+      </view>
     </view>
-    <view class="user-info">
-      <text class="user-name">游客用户</text>
-      <text class="user-id">编号：888888</text>
-    </view>
+    <view class="profile-slogan"><text>今天也要好好吃饭</text><text>新鲜、轻盈、有能量</text></view>
   </view>
 
-  <view class="menu-list">
-    <view class="menu-item">
-      <text class="menu-icon">🎫</text>
-      <text class="menu-text">我的优惠券</text>
-      <text class="menu-arrow">›</text>
-    </view>
-    <view class="menu-item">
-      <text class="menu-icon">❤️</text>
-      <text class="menu-text">我的收藏</text>
-      <text class="menu-arrow">›</text>
-    </view>
-    <view class="menu-item">
-      <text class="menu-icon">📍</text>
-      <text class="menu-text">收货地址</text>
-      <text class="menu-arrow">›</text>
-    </view>
-    <view class="menu-item">
-      <text class="menu-icon">ℹ️</text>
-      <text class="menu-text">关于我们</text>
-      <text class="menu-arrow">›</text>
-    </view>
-    <view class="menu-item">
-      <text class="menu-icon">⚙️</text>
-      <text class="menu-text">设置</text>
-      <text class="menu-arrow">›</text>
-    </view>
+  <view class="profile-stats">
+    <view><text class="stat-number">{{orderCount}}</text><text>累计订单</text></view>
+    <view><text class="stat-number">{{cartCount}}</text><text>已选商品</text></view>
+    <view><text class="stat-state {{profile.address ? 'ready' : ''}}">{{profile.address ? '已完善' : '待完善'}}</text><text>配送资料</text></view>
   </view>
+
+  <view class="section-heading"><view><text>快捷入口</text><text>点单、结算和订单都在这里</text></view></view>
+  <view class="quick-grid">
+    <view class="quick-item" data-action="store" bindtap="handleMenu"><text class="quick-icon green">⌂</text><text class="quick-title">去点单</text><text class="quick-desc">浏览今日轻食</text></view>
+    <view class="quick-item" data-action="orders" bindtap="handleMenu"><text class="quick-icon amber">▤</text><text class="quick-title">我的订单</text><text class="quick-desc">{{orderCount}} 笔订单记录</text></view>
+    <view class="quick-item" data-action="cart" bindtap="handleMenu"><text class="quick-icon blue">▱</text><text class="quick-title">购物车</text><text class="quick-desc">{{cartCount}} 件待结算</text></view>
+    <view class="quick-item" data-action="address" bindtap="handleMenu"><text class="quick-icon violet">⌖</text><text class="quick-title">配送地址</text><text class="quick-desc">{{profile.address ? '已保存常用地址' : '点击补充地址'}}</text></view>
+  </view>
+
+  <view class="section-heading store-heading"><view><text>当前门店</text><text>下单与服务均由该门店承接</text></view></view>
+  <view class="current-store-card">
+    <view class="store-card-icon">⌂</view>
+    <view><text class="card-eyebrow">当前服务门店</text><text class="store-card-name">{{currentStore.name || '请选择门店'}}</text><text class="store-card-address">{{currentStore.address || '进入点单页选择门店'}}</text></view>
+    <view class="store-actions"><text data-action="contact" bindtap="handleMenu">联系</text><text data-action="store" bindtap="handleMenu">切换</text></view>
+  </view>
+
+  <view class="section-heading more-heading"><view><text>帮助与说明</text><text>获取服务支持和品牌信息</text></view></view>
+  <view class="menu-list">
+    <view class="menu-item" data-action="about" bindtap="handleMenu"><text class="menu-icon">ⓘ</text><view><text class="menu-text">关于 Monkey Kitchen</text><text class="menu-desc">了解品牌与数据说明</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-action="address" bindtap="handleMenu"><text class="menu-icon">⌖</text><view><text class="menu-text">管理配送资料</text><text class="menu-desc">资料仅保存在当前设备</text></view><text class="menu-arrow">›</text></view>
+  </view>
+
+  <text class="profile-footnote">资料与订单记录仅保存在当前设备</text>
 </view>

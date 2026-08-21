@@ -9,9 +9,15 @@
           <text class="store-arrow {{storeDropdownOpen ? 'open' : ''}}">▼</text>
         </view>
       </view>
-      <view class="header-right">
+      <view class="header-right {{searchOpen ? 'active' : ''}}" bindtap="toggleSearch">
         <view class="search-icon">🔍</view>
       </view>
+    </view>
+
+    <view class="search-panel" wx:if="{{searchOpen}}">
+      <text class="search-prefix">⌕</text>
+      <input class="search-input" value="{{searchKeyword}}" placeholder="搜索轻食、分类或标签" focus bindinput="onSearchInput" />
+      <text class="search-clear" wx:if="{{searchKeyword}}" bindtap="clearSearch">清除</text>
     </view>
 
     <!-- 门店下拉列表 -->
@@ -33,9 +39,13 @@
   <!-- Banner -->
   <view class="banner">
     <view class="banner-glow"></view>
+    <view class="banner-food">🥗</view>
     <view class="banner-overlay">
-      <view class="banner-tag">新品上市</view>
-      <text class="banner-title">夏日轻盈系列</text>
+      <view class="banner-copy">
+        <view class="banner-tag">今日轻盈推荐</view>
+        <text class="banner-title">吃得满足，也要轻负担</text>
+        <text class="banner-subtitle">新鲜现制 · 营养可见 · 门店自取</text>
+      </view>
     </view>
   </view>
 
@@ -50,7 +60,7 @@
     >{{item}}</view>
   </scroll-view>
 
-  <view class="section-title">为你推荐</view>
+  <view class="section-heading"><view><text class="section-title">为你推荐</text><text class="section-subtitle">{{products.length}} 款轻食可选</text></view><text class="section-store">{{currentStore.name || '请选择门店'}}</text></view>
 
   <!-- 加载中 -->
   <view class="loading" wx:if="{{loading}}">
@@ -72,14 +82,21 @@
         <text class="product-nutrition">{{item.nutritionText}}</text>
         <view class="product-footer">
           <text class="product-price">¥{{item.priceText}}</text>
-          <view wx:if="{{!item.soldOut}}" class="btn-add" data-id="{{item.id}}" bindtap="addToCart"></view>
+          <view wx:if="{{!item.soldOut && item.cartQuantity > 0}}" class="product-quantity">
+            <view class="product-qty-btn minus" data-id="{{item.id}}" bindtap="decreaseCart"></view>
+            <text>{{item.cartQuantity}}</text>
+            <view class="product-qty-btn plus" data-id="{{item.id}}" bindtap="addToCart"></view>
+          </view>
+          <view wx:elif="{{!item.soldOut}}" class="btn-add" data-id="{{item.id}}" bindtap="addToCart"></view>
           <view wx:else class="tag tag-soldout">已售罄</view>
         </view>
       </view>
     </view>
 
     <view class="empty" wx:if="{{products.length === 0}}">
-      <text>暂无菜品</text>
+      <text class="empty-title">没有找到相关轻食</text>
+      <text class="empty-subtitle">换个分类或关键词试试</text>
+      <view class="empty-reset" wx:if="{{searchKeyword}}" bindtap="clearSearch">清除搜索</view>
     </view>
   </view>
 

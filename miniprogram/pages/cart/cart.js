@@ -1,16 +1,18 @@
 const app = getApp()
 const supabase = require('../../utils/supabase.js')
-const config = require('../../config/supabase.js')
 
 Page({
   data: {
     cartItems: [],
     totalAmount: 0,
+    totalItems: 0,
+    storeName: '',
     // 就餐方式
     methods: ['堂食', '外带', '外卖'],
     methodIndex: 0,
     // 姓名
     customerName: '',
+    deliveryAddress: '',
     // 备注
     note: '',
     // 提交中
@@ -24,14 +26,20 @@ Page({
   onShow: function () {
     this.loadCartData()
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({ selected: 1 })
+      this.getTabBar().setData({ selected: 1, cartCount: app.globalData.totalItems })
     }
   },
 
   loadCartData: function () {
+    const profile = app.globalData.profile || {}
+    const store = app.globalData.currentStore
     this.setData({
-      cartItems: app.globalData.cart,
-      totalAmount: app.globalData.totalAmount.toFixed(2)
+      cartItems: app.globalData.cart.map(item => ({ ...item, priceText: Number(item.price).toFixed(2) })),
+      totalAmount: app.globalData.totalAmount.toFixed(2),
+      totalItems: app.globalData.totalItems,
+      storeName: store ? store.name : '尚未选择门店',
+      customerName: this.data.customerName || profile.name || '',
+      deliveryAddress: this.data.deliveryAddress || profile.address || ''
     })
   },
 
@@ -50,6 +58,10 @@ Page({
     this.setData({ note: e.detail.value })
   },
 
+  onAddressInput: function (e) {
+    this.setData({ deliveryAddress: e.detail.value })
+  },
+
   // 数量加减
   increaseQty: function (e) {
     const productId = e.currentTarget.dataset.id
@@ -64,6 +76,33 @@ Page({
     const productId = e.currentTarget.dataset.id
     app.removeFromCart(productId)
     this.loadCartData()
+  },
+
+  removeItem: function (e) {
+    const productId = e.currentTarget.dataset.id
+    wx.showModal({
+      title: '移除商品',
+      content: '确定从购物车移除这款轻食吗？',
+      confirmColor: '#2e7d32',
+      success: res => {
+        if (!res.confirm) return
+        app.removeCartItem(productId)
+        this.loadCartData()
+      }
+    })
+  },
+
+  clearCart: function () {
+    wx.showModal({
+      title: '清空购物车',
+      content: '已选商品将全部移除，是否继续？',
+      confirmColor: '#c94f3d',
+      success: res => {
+        if (!res.confirm) return
+        app.clearCart()
+        this.loadCartData()
+      }
+    })
   },
 
   goToMenu: function () {
@@ -82,16 +121,27 @@ Page({
       wx.showToast({ title: '请先选择门店', icon: 'none' })
       return
     }
+    const nameInput = (this.data.customerName || '').trim()
+    if (!nameInput) {
+      wx.showToast({ title: '请填写取餐人姓名', icon: 'none' })
+      return
+    }
+    const method = this.data.methods[this.data.methodIndex]
+    const deliveryAddress = (this.data.deliveryAddress || '').trim()
+    if (method === '外卖' && !deliveryAddress) {
+      wx.showToast({ title: '请填写配送地址', icon: 'none' })
+      return
+    }
 
     this.setData({ submitting: true })
     wx.showLoading({ title: '提交中...', mask: true })
 
     const cartItems = app.globalData.cart
     const amount = app.globalData.totalAmount
-    const method = this.data.methods[this.data.methodIndex]
-    const note = this.data.note || ''
-    const nameInput = (this.data.customerName || '').trim()
-    const customerName = nameInput ? `${nameInput}（小程序）` : config.defaultCustomerName
+    const profile = app.setProfile({ name: nameInput, address: deliveryAddress || app.globalData.profile.address })
+    const rawNote = (this.data.note || '').trim()
+    const note = method === '外卖' ? `配送地址：${deliveryAddress}${rawNote ? `；备注：${rawNote}` : ''}` : rawNote
+    const customerName = `${nameInput}（${profile.memberId}）`
 
     // 1. 获取订单号
     supabase.nextOrderId().then(orderId => {
@@ -116,6 +166,7 @@ Page({
       return supabase.createOrderItems(items).then(() => orderId)
     }).then(orderId => {
       // 4. 清空购物车
+      app.addMyOrder(orderId)
       app.clearCart()
       this.setData({ submitting: false })
       wx.hideLoading()

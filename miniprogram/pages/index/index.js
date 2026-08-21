@@ -8,7 +8,7 @@ Page({
     // 全部门店
     stores: [],
     // 全部分类
-    categories: ['全部', '沙拉类', '轻食碗', '营养昔', '生酮零食'],
+    categories: ['全部'],
     currentCategory: '全部',
     // 菜品列表（已按分类过滤）
     products: [],
@@ -18,6 +18,8 @@ Page({
     loading: true,
     // 门店下拉是否展开
     storeDropdownOpen: false,
+    searchOpen: false,
+    searchKeyword: '',
     // 购物车
     cartTotalItems: 0,
     cartTotalAmount: 0
@@ -30,7 +32,7 @@ Page({
   onShow: function () {
     this.updateCartInfo()
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({ selected: 0 })
+      this.getTabBar().setData({ selected: 0, cartCount: app.globalData.totalItems })
     }
   },
 
@@ -57,14 +59,17 @@ Page({
         // 营养信息显示
         nutritionText: `${p.calories} kcal · 蛋白质 ${p.protein}g`,
         // 价格保留 2 位
-        priceText: Number(p.price).toFixed(2)
+        priceText: Number(p.price).toFixed(2),
+        cartQuantity: this.getCartQuantity(p.id)
       }))
+      const categories = ['全部', ...Array.from(new Set(processedProducts.map(item => item.category).filter(Boolean)))]
 
       this.setData({
         stores,
         currentStore,
+        categories,
         allProducts: processedProducts,
-        products: this.filterByCategory(processedProducts, this.data.currentCategory),
+        products: this.filterProducts(processedProducts),
         loading: false
       })
       app.setCurrentStore(currentStore)
@@ -76,23 +81,43 @@ Page({
   },
 
   // 按分类过滤
-  filterByCategory: function (products, category) {
-    if (category === '全部') return products
-    return products.filter(p => p.category === category)
+  filterProducts: function (products) {
+    const category = this.data.currentCategory
+    const keyword = this.data.searchKeyword.trim().toLowerCase()
+    return products.filter(item => {
+      const categoryMatched = category === '全部' || item.category === category
+      const keywordMatched = !keyword || [item.name, item.category, item.tag].some(value => String(value || '').toLowerCase().includes(keyword))
+      return categoryMatched && keywordMatched
+    })
   },
 
   // 切换分类
   switchCategory: function (e) {
     const category = e.currentTarget.dataset.category
-    this.setData({
-      currentCategory: category,
-      products: this.filterByCategory(this.data.allProducts, category)
+    this.setData({ currentCategory: category }, () => {
+      this.setData({ products: this.filterProducts(this.data.allProducts) })
+    })
+  },
+
+  toggleSearch: function () {
+    this.setData({ searchOpen: !this.data.searchOpen, storeDropdownOpen: false })
+  },
+
+  onSearchInput: function (e) {
+    this.setData({ searchKeyword: e.detail.value }, () => {
+      this.setData({ products: this.filterProducts(this.data.allProducts) })
+    })
+  },
+
+  clearSearch: function () {
+    this.setData({ searchKeyword: '', searchOpen: false }, () => {
+      this.setData({ products: this.filterProducts(this.data.allProducts) })
     })
   },
 
   // 展开/收起门店下拉
   toggleStoreDropdown: function () {
-    this.setData({ storeDropdownOpen: !this.data.storeDropdownOpen })
+    this.setData({ storeDropdownOpen: !this.data.storeDropdownOpen, searchOpen: false })
   },
 
   // 收起门店下拉
@@ -112,10 +137,18 @@ Page({
   },
 
   updateCartInfo: function () {
+    const allProducts = this.data.allProducts.map(item => ({ ...item, cartQuantity: this.getCartQuantity(item.id) }))
     this.setData({
       cartTotalItems: app.globalData.totalItems,
-      cartTotalAmount: app.globalData.totalAmount.toFixed(2)
+      cartTotalAmount: app.globalData.totalAmount.toFixed(2),
+      allProducts,
+      products: this.filterProducts(allProducts)
     })
+  },
+
+  getCartQuantity: function (productId) {
+    const item = app.globalData.cart.find(product => String(product.id) === String(productId))
+    return item ? Number(item.quantity) : 0
   },
 
   addToCart: function (e) {
@@ -130,6 +163,11 @@ Page({
         duration: 1000
       })
     }
+  },
+
+  decreaseCart: function (e) {
+    app.removeFromCart(e.currentTarget.dataset.id)
+    this.updateCartInfo()
   },
 
   goToCheckout: function () {

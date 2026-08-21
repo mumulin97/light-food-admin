@@ -1,50 +1,61 @@
 <view class="container">
   <view class="orders-header">
-    <text class="orders-title">我的订单</text>
+    <view><text class="orders-title">我的订单</text><text class="orders-subtitle">查看制作进度，完成后还可再次购买</text></view>
     <view class="refresh-btn" bindtap="loadOrders">↻</view>
   </view>
 
-  <!-- 加载中 -->
-  <view class="loading" wx:if="{{loading}}">
-    <text>加载中...</text>
+  <view class="order-summary">
+    <view><text>进行中</text><text class="summary-number active">{{activeCount}}</text></view>
+    <view><text>已完成</text><text class="summary-number">{{completedCount}}</text></view>
+    <view><text>全部订单</text><text class="summary-number">{{orders.length}}</text></view>
   </view>
 
-  <!-- 空状态 -->
+  <scroll-view class="order-tabs" scroll-x enable-flex>
+    <view class="order-tab {{currentStatus === item ? 'active' : ''}}" wx:for="{{statusTabs}}" wx:key="*this" data-status="{{item}}" bindtap="switchStatus">{{item}}</view>
+  </scroll-view>
+
+  <view class="loading" wx:if="{{loading}}"><view class="loading-dot"></view><text>正在同步订单...</text></view>
+
   <view class="orders-empty" wx:elif="{{orders.length === 0}}">
-    <text class="empty-icon">📋</text>
-    <text class="empty-text">还没有订单</text>
+    <view class="empty-icon-wrap"><text class="empty-icon">📋</text></view>
+    <text class="empty-title">还没有下过单</text>
+    <text class="empty-text">完成首单后，可在这里查看制作进度</text>
     <view class="empty-btn" bindtap="goToMenu">去点单</view>
   </view>
 
-  <!-- 订单列表 -->
+  <view class="orders-empty compact" wx:elif="{{displayOrders.length === 0}}">
+    <text class="empty-title">当前分类暂无订单</text>
+    <text class="empty-text">切换到“全部”查看其他订单</text>
+  </view>
+
   <view class="orders-list" wx:else>
-    <view class="order-card" wx:for="{{orders}}" wx:key="id">
+    <view class="order-card" wx:for="{{displayOrders}}" wx:key="id">
       <view class="order-header">
-        <text class="order-id">{{item.id}}</text>
-        <text class="order-status" style="color: {{item.statusColor}}">{{item.status}}</text>
+        <view><text class="order-id">{{item.id}}</text><text class="order-time">{{item.timeText}} · {{item.storeName}}</text></view>
+        <text class="order-status {{item.className}}">{{item.status}}</text>
       </view>
 
-      <view class="order-items" wx:if="{{item.items && item.items.length > 0}}">
+      <view class="order-progress" wx:if="{{item.status !== '已取消'}}">
+        <view class="progress-track"><view class="progress-value step-{{item.step}}"></view></view>
+        <text>{{item.hint}}</text>
+      </view>
+
+      <view class="order-items">
         <view class="order-item" wx:for="{{item.items}}" wx:key="id" wx:for-item="product">
           <text class="order-item-name">{{product.product_name}}</text>
-          <text class="order-item-qty">x{{product.quantity}}</text>
+          <text class="order-item-qty">× {{product.quantity}}</text>
         </view>
+        <text class="items-empty" wx:if="{{item.items.length === 0}}">订单明细暂不可用</text>
       </view>
-      <view class="order-items loading-items" wx:else>
-        <text>加载明细中...</text>
-      </view>
+
+      <view class="order-note" wx:if="{{item.note}}"><text class="note-label">备注</text><text class="note-text">{{item.note}}</text></view>
 
       <view class="order-footer">
-        <view class="order-meta">
-          <text class="order-method">{{item.method}}</text>
-          <text class="order-time">{{item.timeText}}</text>
-        </view>
-        <text class="order-total">¥{{item.amountText}}</text>
+        <view class="order-meta"><text class="order-method">{{item.method}}</text><text>{{item.itemCount}} 件商品</text></view>
+        <view class="order-total-wrap"><text>实付</text><text class="order-total">¥{{item.amountText}}</text></view>
       </view>
-
-      <view class="order-note" wx:if="{{item.note}}">
-        <text class="note-label">备注：</text>
-        <text class="note-text">{{item.note}}</text>
+      <view class="order-actions">
+        <view class="reorder-btn {{reorderingId === item.id ? 'disabled' : ''}}" data-id="{{item.id}}" bindtap="reorder">{{reorderingId === item.id ? '处理中...' : '再次购买'}}</view>
       </view>
     </view>
   </view>

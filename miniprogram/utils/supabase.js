@@ -114,13 +114,16 @@ function createOrderItems(items) {
   })
 }
 
-// 获取订单列表（按创建时间倒序）
-function fetchOrders(limit = 50) {
+// 仅获取当前设备创建的订单，避免把后台全部订单展示给小程序用户
+function fetchOrdersByIds(orderIds) {
+  const ids = (orderIds || []).filter(Boolean)
+  if (!ids.length) return Promise.resolve([])
+  const values = ids.map(id => `"${String(id).replace(/"/g, '')}"`).join(',')
   return request('GET', '/orders', {
     query: {
       select: 'id,store_id,customer_name,amount,status,method,note,created_at',
-      order: 'created_at.desc',
-      limit
+      id: `in.(${values})`,
+      order: 'created_at.desc'
     }
   })
 }
@@ -135,12 +138,26 @@ function fetchOrderItems(orderId) {
   })
 }
 
+function fetchOrderItemsByOrders(orderIds) {
+  const ids = (orderIds || []).filter(Boolean)
+  if (!ids.length) return Promise.resolve([])
+  const values = ids.map(id => `"${String(id).replace(/"/g, '')}"`).join(',')
+  return request('GET', '/order_items', {
+    query: {
+      select: 'id,order_id,product_name,quantity,unit_price',
+      order_id: `in.(${values})`,
+      order: 'order_id.asc'
+    }
+  })
+}
+
 module.exports = {
   fetchStores,
   fetchProducts,
   nextOrderId,
   createOrder,
   createOrderItems,
-  fetchOrders,
-  fetchOrderItems
+  fetchOrdersByIds,
+  fetchOrderItems,
+  fetchOrderItemsByOrders
 }
